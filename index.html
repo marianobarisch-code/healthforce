@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Workout Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
+  <style>
+    :root {
+      --bg: #0f0f0f; --surface: #1a1a1a; --surface2: #242424;
+      --accent: #f59e0b; --accent2: #d97706; --accent-soft: rgba(245,158,11,0.12);
+      --text: #f5f5f5; --text2: #a0a0a0; --text3: #666;
+      --green: #22c55e; --red: #ef4444; --blue: #3b82f6;
+      --border: #333; --radius: 12px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 80px; }
+
+    /* NAV */
+    .nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--border); display: flex; z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
+    .nav-btn { flex: 1; padding: 10px 0 8px; text-align: center; color: var(--text3); font-size: 10px; cursor: pointer; transition: color 0.2s; border: none; background: none; }
+    .nav-btn.active { color: var(--accent); }
+    .nav-btn svg { display: block; margin: 0 auto 3px; width: 22px; height: 22px; }
+
+    /* SCREENS */
+    .screen { display: none; padding: 16px; max-width: 600px; margin: 0 auto; }
+    .screen.active { display: block; }
+
+    /* COMMON */
+    h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+    h2 { font-size: 18px; font-weight: 600; margin-bottom: 12px; }
+    .subtitle { color: var(--text2); font-size: 13px; margin-bottom: 20px; }
+    .card { background: var(--surface); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; border: 1px solid var(--border); }
+    .btn { background: var(--accent); color: #000; border: none; border-radius: 10px; padding: 14px 24px; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%; transition: background 0.2s; }
+    .btn:active { background: var(--accent2); }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-small { padding: 8px 16px; font-size: 13px; width: auto; }
+    .btn-danger { background: var(--red); color: white; }
+    input, select { background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 16px; width: 100%; }
+    input:focus, select:focus { outline: none; border-color: var(--accent); }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge-muscle { background: var(--accent-soft); color: var(--accent); }
+
+    /* HOME */
+    .workout-type-card { cursor: pointer; transition: border-color 0.2s; }
+    .workout-type-card:active { border-color: var(--accent); }
+    .workout-type-card .day-label { font-size: 11px; color: var(--accent); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .workout-type-card .day-name { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+    .workout-type-card .muscles { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    /* LOG WORKOUT */
+    .exercise-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+    .exercise-item:last-child { border-bottom: none; }
+    .exercise-name { font-weight: 500; font-size: 15px; }
+    .exercise-muscle { font-size: 12px; color: var(--text2); }
+    .set-row { display: grid; grid-template-columns: 40px 1fr 1fr 44px; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .set-num { font-size: 13px; color: var(--text2); text-align: center; font-weight: 600; }
+    .set-input { padding: 10px; font-size: 16px; text-align: center; }
+    .remove-set { background: none; border: none; color: var(--red); font-size: 18px; cursor: pointer; padding: 8px; }
+
+    /* HISTORY */
+    .history-item { cursor: pointer; }
+    .history-date { font-size: 13px; color: var(--accent); font-weight: 600; }
+    .history-type { font-size: 16px; font-weight: 600; margin: 2px 0; }
+    .history-stats { font-size: 13px; color: var(--text2); }
+
+    /* ANALYTICS */
+    .chart-container { position: relative; height: 250px; margin: 12px 0; }
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .stat-card { background: var(--surface); border-radius: var(--radius); padding: 14px; border: 1px solid var(--border); text-align: center; }
+    .stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
+    .stat-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+    /* EXERCISE SELECTOR */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; display: none; }
+    .modal-overlay.open { display: flex; align-items: flex-end; }
+    .modal { background: var(--surface); border-radius: 20px 20px 0 0; width: 100%; max-width: 600px; margin: 0 auto; max-height: 80vh; overflow-y: auto; padding: 20px; }
+    .modal h2 { margin-bottom: 12px; }
+    .search-input { margin-bottom: 12px; }
+    .muscle-filter { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .muscle-filter-btn { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); background: none; color: var(--text2); font-size: 12px; cursor: pointer; }
+    .muscle-filter-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+
+    .back-btn { background: none; border: none; color: var(--accent); font-size: 14px; cursor: pointer; padding: 8px 0; margin-bottom: 8px; display: flex; align-items: center; gap: 4px; }
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--text3); }
+    .empty-state svg { margin-bottom: 12px; opacity: 0.3; }
+
+    @media (min-width: 640px) {
+      .screen { padding: 24px; }
+      .set-row { grid-template-columns: 50px 1fr 1fr 1fr 50px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV BAR -->
+<nav class="nav">
+  <button class="nav-btn active" data-screen="home">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    Hoy
+  </button>
+  <button class="nav-btn" data-screen="log">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+    Loggear
+  </button>
+  <button class="nav-btn" data-screen="history">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    Historial
+  </button>
+  <button class="nav-btn" data-screen="analytics">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    Analytics
+  </button>
+</nav>
+
+<!-- HOME SCREEN -->
+<div class="screen active" id="screen-home">
+  <h1>Hoy</h1>
+  <p class="subtitle" id="today-info"></p>
+  <div id="today-workout"></div>
+  <div style="margin-top:20px">
+    <h2>Tu semana</h2>
+    <div id="week-overview"></div>
+  </div>
+</div>
+
+<!-- LOG SCREEN -->
+<div class="screen" id="screen-log">
+  <div id="log-select-type">
+    <h1>Nueva sesión</h1>
+    <p class="subtitle">Elegí el tipo de entrenamiento</p>
+    <div id="log-types"></div>
+  </div>
+  <div id="log-workout" style="display:none">
+    <button class="back-btn" id="log-back">← Volver</button>
+    <h1 id="log-title"></h1>
+    <p class="subtitle" id="log-subtitle"></p>
+    <div id="log-exercises"></div>
+    <button class="btn btn-secondary" style="margin-bottom:12px" id="add-exercise-btn">+ Agregar ejercicio</button>
+    <button class="btn" id="save-workout-btn">Guardar sesión</button>
+  </div>
+</div>
+
+<!-- HISTORY SCREEN -->
+<div class="screen" id="screen-history">
+  <h1>Historial</h1>
+  <p class="subtitle">Tus sesiones anteriores</p>
+  <div id="history-list"></div>
+</div>
+
+<!-- ANALYTICS SCREEN -->
+<div class="screen" id="screen-analytics">
+  <h1>Analytics</h1>
+  <p class="subtitle">Tu progreso de entrenamiento</p>
+  <div class="stat-grid" id="stats-overview"></div>
+  <div class="card">
+    <h2>Progresión de peso</h2>
+    <div style="margin-bottom:10px">
+      <select id="analytics-exercise-select"><option value="">Elegí un ejercicio</option></select>
+    </div>
+    <div class="chart-container"><canvas id="chart-progression"></canvas></div>
+  </div>
+  <div class="card">
+    <h2>Volumen por grupo muscular</h2>
+    <p class="subtitle" style="margin-bottom:8px">Últimas 4 semanas</p>
+    <div class="chart-container"><canvas id="chart-muscles"></canvas></div>
+  </div>
+</div>
+
+<!-- EXERCISE SELECTOR MODAL -->
+<div class="modal-overlay" id="exercise-modal">
+  <div class="modal">
+    <h2>Agregar ejercicio</h2>
+    <input class="search-input" id="exercise-search" placeholder="Buscar ejercicio..." />
+    <div class="muscle-filter" id="muscle-filter"></div>
+    <div id="exercise-list"></div>
+  </div>
+</div>
+
+<script>
+// ==================== DATA ====================
+const MUSCLE_GROUPS = ['Pecho', 'Espalda', 'Hombros', 'Bíceps', 'Tríceps', 'Piernas', 'Core', 'Glúteos', 'Pantorrillas'];
+
+const EXERCISES = [
+  // PECHO
+  { id: 'bench-press', name: 'Press de banca', muscle: 'Pecho', secondary: ['Tríceps', 'Hombros'] },
+  { id: 'incline-bench', name: 'Press inclinado', muscle: 'Pecho', secondary: ['Hombros'] },
+  { id: 'db-bench', name: 'Press con mancuernas', muscle: 'Pecho', secondary: ['Tríceps'] },
+  { id: 'incline-db', name: 'Press inclinado mancuernas', muscle: 'Pecho', secondary: ['Hombros'] },
+  { id: 'chest-fly', name: 'Aperturas (fly)', muscle: 'Pecho', secondary: [] },
+  { id: 'cable-fly', name: 'Cable fly', muscle: 'Pecho', secondary: [] },
+  { id: 'dips-chest', name: 'Fondos (pecho)', muscle: 'Pecho', secondary: ['Tríceps'] },
+
+  // ESPALDA
+  { id: 'pull-ups', name: 'Dominadas', muscle: 'Espalda', secondary: ['Bíceps'] },
+  { id: 'barbell-row', name: 'Remo con barra', muscle: 'Espalda', secondary: ['Bíceps'] },
+  { id: 'cable-row', name: 'Remo en polea', muscle: 'Espalda', secondary: ['Bíceps'] },
+  { id: 'lat-pulldown', name: 'Jalón al pecho', muscle: 'Espalda', secondary: ['Bíceps'] },
+  { id: 'db-row', name: 'Remo con mancuerna', muscle: 'Espalda', secondary: [] },
+  { id: 't-bar-row', name: 'Remo T-bar', muscle: 'Espalda', secondary: ['Bíceps'] },
+  { id: 'deadlift', name: 'Peso muerto', muscle: 'Espalda', secondary: ['Piernas', 'Glúteos'] },
+
+  // HOMBROS
+  { id: 'ohp', name: 'Press militar', muscle: 'Hombros', secondary: ['Tríceps'] },
+  { id: 'db-ohp', name: 'Press militar mancuernas', muscle: 'Hombros', secondary: ['Tríceps'] },
+  { id: 'lateral-raise', name: 'Elevaciones laterales', muscle: 'Hombros', secondary: [] },
+  { id: 'front-raise', name: 'Elevaciones frontales', muscle: 'Hombros', secondary: [] },
+  { id: 'face-pull', name: 'Face pulls', muscle: 'Hombros', secondary: ['Espalda'] },
+  { id: 'rear-delt-fly', name: 'Pájaro (rear delt)', muscle: 'Hombros', secondary: ['Espalda'] },
+  { id: 'upright-row', name: 'Remo al mentón', muscle: 'Hombros', secondary: ['Tríceps'] },
+  { id: 'shrugs', name: 'Encogimientos (shrugs)', muscle: 'Hombros', secondary: [] },
+
+  // BÍCEPS
+  { id: 'barbell-curl', name: 'Curl con barra', muscle: 'Bíceps', secondary: [] },
+  { id: 'db-curl', name: 'Curl con mancuernas', muscle: 'Bíceps', secondary: [] },
+  { id: 'hammer-curl', name: 'Curl martillo', muscle: 'Bíceps', secondary: [] },
+  { id: 'preacher-curl', name: 'Curl predicador', muscle: 'Bíceps', secondary: [] },
+  { id: 'cable-curl', name: 'Curl en polea', muscle: 'Bíceps', secondary: [] },
+
+  // TRÍCEPS
+  { id: 'tricep-pushdown', name: 'Extensión en polea', muscle: 'Tríceps', secondary: [] },
+  { id: 'skull-crusher', name: 'Rompecráneos', muscle: 'Tríceps', secondary: [] },
+  { id: 'overhead-ext', name: 'Extensión overhead', muscle: 'Tríceps', secondary: [] },
+  { id: 'dips-tricep', name: 'Fondos (tríceps)', muscle: 'Tríceps', secondary: ['Pecho'] },
+  { id: 'close-grip-bench', name: 'Press agarre cerrado', muscle: 'Tríceps', secondary: ['Pecho'] },
+
+  // PIERNAS
+  { id: 'squat', name: 'Sentadilla', muscle: 'Piernas', secondary: ['Glúteos', 'Core'] },
+  { id: 'front-squat', name: 'Sentadilla frontal', muscle: 'Piernas', secondary: ['Core'] },
+  { id: 'leg-press', name: 'Prensa de piernas', muscle: 'Piernas', secondary: ['Glúteos'] },
+  { id: 'rdl', name: 'Peso muerto rumano', muscle: 'Piernas', secondary: ['Espalda', 'Glúteos'] },
+  { id: 'leg-curl', name: 'Curl femoral', muscle: 'Piernas', secondary: [] },
+  { id: 'leg-extension', name: 'Extensión de cuádriceps', muscle: 'Piernas', secondary: [] },
+  { id: 'lunges', name: 'Estocadas', muscle: 'Piernas', secondary: ['Glúteos'] },
+  { id: 'bulgarian-split', name: 'Sentadilla búlgara', muscle: 'Piernas', secondary: ['Glúteos'] },
+  { id: 'hip-thrust', name: 'Hip thrust', muscle: 'Glúteos', secondary: ['Piernas'] },
+  { id: 'calf-raise', name: 'Elevación de pantorrillas', muscle: 'Pantorrillas', secondary: [] },
+
+  // CORE
+  { id: 'plank', name: 'Plancha', muscle: 'Core', secondary: [] },
+  { id: 'hanging-leg-raise', name: 'Elevación de piernas colgado', muscle: 'Core', secondary: [] },
+  { id: 'cable-crunch', name: 'Crunch en polea', muscle: 'Core', secondary: [] },
+  { id: 'ab-wheel', name: 'Rueda abdominal', muscle: 'Core', secondary: [] },
+];
+
+const WORKOUT_TYPES = [
+  { id: 'day1', label: 'Día 1', name: 'Pecho, Hombros & Bíceps', muscles: ['Pecho', 'Hombros', 'Bíceps'], day: 'Jueves', color: '#ef6c00' },
+  { id: 'day2', label: 'Día 2', name: 'Espalda, Hombro Post & Tríceps', muscles: ['Espalda', 'Hombros', 'Tríceps'], day: 'Viernes', color: '#ef6c00' },
+  { id: 'day3', label: 'Día 3', name: 'Piernas', muscles: ['Piernas', 'Glúteos', 'Pantorrillas'], day: 'Lunes', color: '#e65100' },
+  { id: 'day4', label: 'Día 4', name: 'Espalda, Pecho & Hombros', muscles: ['Espalda', 'Pecho', 'Hombros'], day: 'Martes', color: '#c62828' },
+  { id: 'sprints', label: 'Sprints', name: 'Velocidad & Explosividad', muscles: ['Piernas', 'Core'], day: 'Sábado', color: '#7b1fa2' },
+  { id: 'natacion', label: 'Natación', name: 'Full Body Cardio', muscles: ['Espalda', 'Hombros', 'Core'], day: 'Lunes PM', color: '#1565c0' },
+  { id: 'padel', label: 'Pádel', name: 'Deporte', muscles: ['Piernas', 'Hombros', 'Core'], day: 'Viernes PM', color: '#00796b' },
+];
+
+// ==================== STATE ====================
+let state = {
+  workouts: [],
+  currentWorkout: null,
+  currentScreen: 'home',
+};
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem('workout-tracker-data');
+    if (saved) state.workouts = JSON.parse(saved);
+  } catch(e) {}
+}
+
+function saveState() {
+  try { localStorage.setItem('workout-tracker-data', JSON.stringify(state.workouts)); } catch(e) {}
+}
+
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+// ==================== NAVIGATION ====================
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => navigate(btn.dataset.screen));
+});
+
+function navigate(screen) {
+  state.currentScreen = screen;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + screen).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.screen === screen));
+  if (screen === 'home') renderHome();
+  if (screen === 'log') renderLogSelect();
+  if (screen === 'history') renderHistory();
+  if (screen === 'analytics') renderAnalytics();
+}
+
+// ==================== HOME ====================
+function renderHome() {
+  const now = new Date();
+  const days = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  document.getElementById('today-info').textContent = `${days[now.getDay()]} ${now.getDate()} de ${months[now.getMonth()]}`;
+
+  const todayType = WORKOUT_TYPES.find(t => t.day.startsWith(days[now.getDay()]));
+  const todayEl = document.getElementById('today-workout');
+
+  const todayWorkouts = state.workouts.filter(w => w.date === now.toISOString().slice(0,10));
+
+  if (todayType) {
+    const logged = todayWorkouts.find(w => w.typeId === todayType.id);
+    todayEl.innerHTML = `
+      <div class="card" style="border-left: 4px solid ${todayType.color}">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:12px;color:${todayType.color};font-weight:700">${todayType.label} — ${todayType.day}</div>
+            <div style="font-size:18px;font-weight:600;margin:4px 0">${todayType.name}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">${todayType.muscles.map(m => `<span class="badge badge-muscle">${m}</span>`).join('')}</div>
+          </div>
+          ${logged ? '<span style="color:var(--green);font-size:24px">✓</span>' : ''}
+        </div>
+        ${!logged ? `<button class="btn" style="margin-top:14px" onclick="startWorkout('${todayType.id}')">Empezar sesión</button>` : `<p style="color:var(--green);font-size:13px;margin-top:10px">✓ Sesión completada — ${logged.exercises.reduce((a,e) => a + e.sets.length, 0)} sets totales</p>`}
+      </div>`;
+  } else {
+    todayEl.innerHTML = `<div class="card"><p style="color:var(--text2)">Hoy es día de descanso 💤</p></div>`;
+  }
+
+  const weekEl = document.getElementById('week-overview');
+  const dayMap = { 'Lunes': 1, 'Martes': 2, 'Miércoles': 3, 'Jueves': 4, 'Viernes': 5, 'Sábado': 6, 'Domingo': 0 };
+  weekEl.innerHTML = WORKOUT_TYPES.filter(t => !t.day.includes('PM')).map(t => {
+    const dayNum = dayMap[t.day];
+    const diff = (dayNum - now.getDay() + 7) % 7;
+    const date = new Date(now); date.setDate(date.getDate() + diff);
+    const logged = state.workouts.find(w => w.date === date.toISOString().slice(0,10) && w.typeId === t.id);
+    return `<div class="card" style="padding:12px;display:flex;align-items:center;gap:12px;border-left:3px solid ${t.color}">
+      <div style="min-width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;${logged ? 'background:var(--green);color:#000' : 'background:var(--surface2);color:var(--text3)'}">${logged ? '✓' : t.day.slice(0,2)}</div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:600">${t.label}: ${t.name}</div>
+        <div style="font-size:12px;color:var(--text3)">${t.day}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ==================== LOG WORKOUT ====================
+function renderLogSelect() {
+  document.getElementById('log-select-type').style.display = 'block';
+  document.getElementById('log-workout').style.display = 'none';
+
+  document.getElementById('log-types').innerHTML = WORKOUT_TYPES.map(t => `
+    <div class="card workout-type-card" style="border-left:4px solid ${t.color}" onclick="startWorkout('${t.id}')">
+      <div class="day-label">${t.label} — ${t.day}</div>
+      <div class="day-name">${t.name}</div>
+      <div class="muscles">${t.muscles.map(m => `<span class="badge badge-muscle">${m}</span>`).join('')}</div>
+    </div>`).join('');
+}
+
+function startWorkout(typeId) {
+  navigate('log');
+  const type = WORKOUT_TYPES.find(t => t.id === typeId);
+  state.currentWorkout = { id: genId(), typeId, date: new Date().toISOString().slice(0,10), exercises: [], startedAt: Date.now() };
+
+  document.getElementById('log-select-type').style.display = 'none';
+  document.getElementById('log-workout').style.display = 'block';
+  document.getElementById('log-title').textContent = `${type.label}: ${type.name}`;
+  document.getElementById('log-subtitle').textContent = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  renderLogExercises();
+}
+
+function renderLogExercises() {
+  const container = document.getElementById('log-exercises');
+  if (state.currentWorkout.exercises.length === 0) {
+    container.innerHTML = `<div class="empty-state"><p style="margin-bottom:12px">No hay ejercicios todavía</p><p style="font-size:13px">Tocá "Agregar ejercicio" para empezar</p></div>`;
+    return;
+  }
+
+  container.innerHTML = state.currentWorkout.exercises.map((ex, ei) => {
+    const exerciseData = EXERCISES.find(e => e.id === ex.exerciseId) || { name: ex.exerciseId, muscle: '?' };
+    return `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div>
+          <div style="font-size:15px;font-weight:600">${exerciseData.name}</div>
+          <div style="font-size:12px;color:var(--text2)">${exerciseData.muscle}</div>
+        </div>
+        <button class="btn-small btn-secondary" onclick="removeExercise(${ei})" style="color:var(--red);border-color:var(--red);padding:6px 10px;font-size:12px">✕</button>
+      </div>
+      <div class="set-row" style="margin-bottom:4px">
+        <span class="set-num">#</span>
+        <span style="font-size:12px;color:var(--text3);text-align:center">KG</span>
+        <span style="font-size:12px;color:var(--text3);text-align:center">REPS</span>
+        <span></span>
+      </div>
+      ${ex.sets.map((set, si) => `
+        <div class="set-row">
+          <span class="set-num">${si + 1}</span>
+          <input class="set-input" type="number" inputmode="decimal" value="${set.weight || ''}" placeholder="kg" onchange="updateSet(${ei},${si},'weight',this.value)">
+          <input class="set-input" type="number" inputmode="numeric" value="${set.reps || ''}" placeholder="reps" onchange="updateSet(${ei},${si},'reps',this.value)">
+          <button class="remove-set" onclick="removeSet(${ei},${si})">−</button>
+        </div>`).join('')}
+      <button class="btn btn-secondary btn-small" style="margin-top:8px;width:100%" onclick="addSet(${ei})">+ Serie</button>
+    </div>`;
+  }).join('');
+}
+
+function addSet(exerciseIdx) {
+  const ex = state.currentWorkout.exercises[exerciseIdx];
+  const lastSet = ex.sets[ex.sets.length - 1] || { weight: '', reps: '' };
+  ex.sets.push({ weight: lastSet.weight, reps: lastSet.reps });
+  renderLogExercises();
+}
+
+function removeSet(exIdx, setIdx) {
+  state.currentWorkout.exercises[exIdx].sets.splice(setIdx, 1);
+  renderLogExercises();
+}
+
+function updateSet(exIdx, setIdx, field, value) {
+  state.currentWorkout.exercises[exIdx].sets[setIdx][field] = parseFloat(value) || 0;
+}
+
+function removeExercise(idx) {
+  state.currentWorkout.exercises.splice(idx, 1);
+  renderLogExercises();
+}
+
+// EXERCISE MODAL
+document.getElementById('add-exercise-btn').addEventListener('click', openExerciseModal);
+document.getElementById('exercise-modal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('exercise-modal')) closeExerciseModal();
+});
+
+let selectedMuscleFilter = null;
+
+function openExerciseModal() {
+  const modal = document.getElementById('exercise-modal');
+  modal.classList.add('open');
+  document.getElementById('exercise-search').value = '';
+  selectedMuscleFilter = null;
+
+  const type = WORKOUT_TYPES.find(t => t.id === state.currentWorkout.typeId);
+  const relevantMuscles = type ? type.muscles : MUSCLE_GROUPS;
+
+  document.getElementById('muscle-filter').innerHTML =
+    `<button class="muscle-filter-btn active" onclick="filterMuscle(null, this)">Todos</button>` +
+    relevantMuscles.map(m => `<button class="muscle-filter-btn" onclick="filterMuscle('${m}', this)">${m}</button>`).join('') +
+    (relevantMuscles.length < MUSCLE_GROUPS.length ? `<button class="muscle-filter-btn" onclick="filterMuscle('other', this)">Otros</button>` : '');
+
+  renderExerciseList();
+}
+
+function closeExerciseModal() {
+  document.getElementById('exercise-modal').classList.remove('open');
+}
+
+function filterMuscle(muscle, btn) {
+  selectedMuscleFilter = muscle;
+  document.querySelectorAll('.muscle-filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderExerciseList();
+}
+
+document.getElementById('exercise-search').addEventListener('input', renderExerciseList);
+
+function renderExerciseList() {
+  const search = document.getElementById('exercise-search').value.toLowerCase();
+  const type = WORKOUT_TYPES.find(t => t.id === state.currentWorkout.typeId);
+
+  let filtered = EXERCISES;
+  if (selectedMuscleFilter === 'other') {
+    const typeMuscles = type ? type.muscles : [];
+    filtered = filtered.filter(e => !typeMuscles.includes(e.muscle));
+  } else if (selectedMuscleFilter) {
+    filtered = filtered.filter(e => e.muscle === selectedMuscleFilter || e.secondary.includes(selectedMuscleFilter));
+  }
+  if (search) filtered = filtered.filter(e => e.name.toLowerCase().includes(search));
+
+  const alreadyAdded = (state.currentWorkout?.exercises || []).map(e => e.exerciseId);
+
+  document.getElementById('exercise-list').innerHTML = filtered.map(e => `
+    <div class="exercise-item" onclick="selectExercise('${e.id}')" style="${alreadyAdded.includes(e.id) ? 'opacity:0.4' : ''}">
+      <div>
+        <div class="exercise-name">${e.name}</div>
+        <div class="exercise-muscle">${e.muscle}${e.secondary.length ? ' · ' + e.secondary.join(', ') : ''}</div>
+      </div>
+      ${alreadyAdded.includes(e.id) ? '<span style="color:var(--green)">✓</span>' : '<span style="color:var(--accent);font-size:20px">+</span>'}
+    </div>`).join('');
+}
+
+function selectExercise(exerciseId) {
+  if (state.currentWorkout.exercises.find(e => e.exerciseId === exerciseId)) return;
+  state.currentWorkout.exercises.push({ exerciseId, sets: [{ weight: '', reps: '' }] });
+  closeExerciseModal();
+  renderLogExercises();
+}
+
+// SAVE
+document.getElementById('save-workout-btn').addEventListener('click', () => {
+  if (!state.currentWorkout || state.currentWorkout.exercises.length === 0) {
+    alert('Agregá al menos un ejercicio');
+    return;
+  }
+  // Clean empty sets
+  state.currentWorkout.exercises.forEach(ex => {
+    ex.sets = ex.sets.filter(s => s.weight || s.reps);
+  });
+  state.currentWorkout.exercises = state.currentWorkout.exercises.filter(ex => ex.sets.length > 0);
+
+  if (state.currentWorkout.exercises.length === 0) {
+    alert('Completá al menos una serie con peso o reps');
+    return;
+  }
+
+  state.currentWorkout.duration = Math.round((Date.now() - state.currentWorkout.startedAt) / 60000);
+  delete state.currentWorkout.startedAt;
+  state.workouts.push(state.currentWorkout);
+  saveState();
+  state.currentWorkout = null;
+  navigate('home');
+});
+
+document.getElementById('log-back').addEventListener('click', () => {
+  if (state.currentWorkout?.exercises.length > 0) {
+    if (!confirm('¿Descartar esta sesión?')) return;
+  }
+  state.currentWorkout = null;
+  renderLogSelect();
+});
+
+// ==================== HISTORY ====================
+function renderHistory() {
+  const container = document.getElementById('history-list');
+  const sorted = [...state.workouts].sort((a, b) => b.date.localeCompare(a.date));
+
+  if (sorted.length === 0) {
+    container.innerHTML = `<div class="empty-state"><p>No hay sesiones registradas</p><p style="font-size:13px;margin-top:8px">Empezá a loggear tus entrenamientos</p></div>`;
+    return;
+  }
+
+  container.innerHTML = sorted.map(w => {
+    const type = WORKOUT_TYPES.find(t => t.id === w.typeId) || { label: '?', name: w.typeId, color: '#666' };
+    const totalSets = w.exercises.reduce((a, e) => a + e.sets.length, 0);
+    const totalVolume = w.exercises.reduce((a, e) => a + e.sets.reduce((b, s) => b + (s.weight || 0) * (s.reps || 0), 0), 0);
+    const date = new Date(w.date + 'T12:00:00');
+
+    return `<div class="card history-item" style="border-left:3px solid ${type.color}" onclick="showWorkoutDetail('${w.id}')">
+      <div class="history-date">${date.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })}</div>
+      <div class="history-type">${type.label}: ${type.name}</div>
+      <div class="history-stats">${w.exercises.length} ejercicios · ${totalSets} sets · ${Math.round(totalVolume).toLocaleString()} kg vol.${w.duration ? ` · ${w.duration} min` : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+function showWorkoutDetail(id) {
+  const w = state.workouts.find(w => w.id === id);
+  if (!w) return;
+  const type = WORKOUT_TYPES.find(t => t.id === w.typeId) || { label: '?', name: w.typeId };
+
+  let html = `<button class="back-btn" onclick="renderHistory()">← Volver</button>`;
+  html += `<h2>${type.label}: ${type.name}</h2>`;
+  html += `<p class="subtitle">${new Date(w.date + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>`;
+
+  w.exercises.forEach(ex => {
+    const exData = EXERCISES.find(e => e.id === ex.exerciseId) || { name: ex.exerciseId };
+    html += `<div class="card"><div style="font-weight:600;margin-bottom:8px">${exData.name}</div>`;
+    ex.sets.forEach((s, i) => {
+      html += `<div style="display:flex;gap:12px;padding:4px 0;font-size:14px;color:var(--text2)">
+        <span style="min-width:30px;color:var(--text3)">#${i+1}</span>
+        <span style="min-width:60px">${s.weight} kg</span>
+        <span>${s.reps} reps</span>
+        <span style="color:var(--text3);margin-left:auto">${Math.round((s.weight||0)*(s.reps||0))} kg vol</span>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+
+  html += `<button class="btn btn-danger btn-small" style="margin-top:12px" onclick="deleteWorkout('${w.id}')">Eliminar sesión</button>`;
+  document.getElementById('history-list').innerHTML = html;
+}
+
+function deleteWorkout(id) {
+  if (!confirm('¿Eliminar esta sesión?')) return;
+  state.workouts = state.workouts.filter(w => w.id !== id);
+  saveState();
+  renderHistory();
+}
+
+// ==================== ANALYTICS ====================
+let progressionChart = null, muscleChart = null;
+
+function renderAnalytics() {
+  // Overview stats
+  const totalWorkouts = state.workouts.length;
+  const totalVolume = state.workouts.reduce((a, w) => a + w.exercises.reduce((b, e) => b + e.sets.reduce((c, s) => c + (s.weight||0)*(s.reps||0), 0), 0), 0);
+  const totalSets = state.workouts.reduce((a, w) => a + w.exercises.reduce((b, e) => b + e.sets.length, 0), 0);
+
+  // PRs
+  const prs = {};
+  state.workouts.forEach(w => {
+    w.exercises.forEach(ex => {
+      ex.sets.forEach(s => {
+        if (!prs[ex.exerciseId] || s.weight > prs[ex.exerciseId]) {
+          prs[ex.exerciseId] = s.weight;
+        }
+      });
+    });
+  });
+
+  document.getElementById('stats-overview').innerHTML = `
+    <div class="stat-card"><div class="stat-value">${totalWorkouts}</div><div class="stat-label">Sesiones</div></div>
+    <div class="stat-card"><div class="stat-value">${(totalVolume/1000).toFixed(1)}t</div><div class="stat-label">Volumen total</div></div>
+    <div class="stat-card"><div class="stat-value">${totalSets}</div><div class="stat-label">Sets totales</div></div>
+    <div class="stat-card"><div class="stat-value">${Object.keys(prs).length}</div><div class="stat-label">Ejercicios</div></div>`;
+
+  // Exercise select for progression chart
+  const exerciseSelect = document.getElementById('analytics-exercise-select');
+  const usedExercises = [...new Set(state.workouts.flatMap(w => w.exercises.map(e => e.exerciseId)))];
+  exerciseSelect.innerHTML = `<option value="">Elegí un ejercicio</option>` +
+    usedExercises.map(id => {
+      const ex = EXERCISES.find(e => e.id === id);
+      return `<option value="${id}">${ex ? ex.name : id}${prs[id] ? ` (PR: ${prs[id]}kg)` : ''}</option>`;
+    }).join('');
+
+  exerciseSelect.onchange = () => renderProgressionChart(exerciseSelect.value);
+
+  renderMuscleChart();
+  if (usedExercises.length > 0) renderProgressionChart(usedExercises[0]);
+}
+
+function renderProgressionChart(exerciseId) {
+  if (!exerciseId) return;
+  const canvas = document.getElementById('chart-progression');
+  if (progressionChart) progressionChart.destroy();
+
+  const dataPoints = [];
+  state.workouts.sort((a,b) => a.date.localeCompare(b.date)).forEach(w => {
+    w.exercises.filter(e => e.exerciseId === exerciseId).forEach(ex => {
+      const maxWeight = Math.max(...ex.sets.map(s => s.weight || 0));
+      const totalVol = ex.sets.reduce((a, s) => a + (s.weight||0)*(s.reps||0), 0);
+      if (maxWeight > 0) dataPoints.push({ date: w.date, weight: maxWeight, volume: totalVol });
+    });
+  });
+
+  progressionChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: dataPoints.map(d => { const dt = new Date(d.date+'T12:00:00'); return dt.toLocaleDateString('es-AR',{day:'numeric',month:'short'}); }),
+      datasets: [{
+        label: 'Peso máx (kg)',
+        data: dataPoints.map(d => d.weight),
+        borderColor: '#f59e0b',
+        backgroundColor: 'rgba(245,158,11,0.1)',
+        fill: true, tension: 0.3, pointRadius: 5,
+      }, {
+        label: 'Volumen (kg)',
+        data: dataPoints.map(d => d.volume),
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59,130,246,0.1)',
+        fill: true, tension: 0.3, pointRadius: 3,
+        yAxisID: 'y1',
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#a0a0a0', font: { size: 11 } } } },
+      scales: {
+        x: { ticks: { color: '#666' }, grid: { color: '#333' } },
+        y: { ticks: { color: '#f59e0b' }, grid: { color: '#333' }, title: { display: true, text: 'Peso (kg)', color: '#666' } },
+        y1: { position: 'right', ticks: { color: '#3b82f6' }, grid: { display: false }, title: { display: true, text: 'Volumen', color: '#666' } },
+      }
+    }
+  });
+}
+
+function renderMuscleChart() {
+  const canvas = document.getElementById('chart-muscles');
+  if (muscleChart) muscleChart.destroy();
+
+  const fourWeeksAgo = new Date(); fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+  const recent = state.workouts.filter(w => new Date(w.date) >= fourWeeksAgo);
+
+  const volumeByMuscle = {};
+  recent.forEach(w => {
+    w.exercises.forEach(ex => {
+      const exData = EXERCISES.find(e => e.id === ex.exerciseId);
+      if (!exData) return;
+      const vol = ex.sets.reduce((a, s) => a + (s.weight||0)*(s.reps||0), 0);
+      volumeByMuscle[exData.muscle] = (volumeByMuscle[exData.muscle] || 0) + vol;
+      exData.secondary.forEach(m => { volumeByMuscle[m] = (volumeByMuscle[m] || 0) + vol * 0.4; });
+    });
+  });
+
+  const muscles = Object.keys(volumeByMuscle).sort((a,b) => volumeByMuscle[b] - volumeByMuscle[a]);
+  const colors = ['#f59e0b','#ef6c00','#e65100','#c62828','#7b1fa2','#1565c0','#00796b','#22c55e','#3b82f6'];
+
+  muscleChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: muscles,
+      datasets: [{ data: muscles.map(m => Math.round(volumeByMuscle[m])), backgroundColor: muscles.map((_,i) => colors[i % colors.length]), borderRadius: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#666', callback: v => (v/1000).toFixed(0)+'t' }, grid: { color: '#333' }, title: { display: true, text: 'Volumen (kg)', color: '#666' } },
+        y: { ticks: { color: '#a0a0a0', font: { size: 12 } }, grid: { display: false } },
+      }
+    }
+  });
+}
+
+// ==================== INIT ====================
+loadState();
+renderHome();
+</script>
+</body>
+</html>
