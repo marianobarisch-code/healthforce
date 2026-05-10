@@ -28,14 +28,7 @@
       --radius-lg: 28px;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
+    html, body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
     body { padding-bottom: 100px; }
     button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
     input, select, textarea { font-family: inherit; }
@@ -43,18 +36,18 @@
     .screen { display: none; max-width: 600px; margin: 0 auto; padding: 24px 20px 0; }
     .screen.active { display: block; }
 
-    /* LOGIN */
-    .login-screen { min-height: 100vh; display: none; flex-direction: column; justify-content: center; align-items: center; padding: 24px; max-width: 400px; margin: 0 auto; }
+    .login-screen { min-height: 100vh; display: none; flex-direction: column; justify-content: center; align-items: stretch; padding: 24px; max-width: 400px; margin: 0 auto; }
     .login-screen.active { display: flex; }
-    .login-screen .brand { font-size: 36px; font-weight: 900; letter-spacing: -0.03em; margin-bottom: 8px; }
+    .login-screen .brand { font-size: 36px; font-weight: 900; letter-spacing: -0.03em; margin-bottom: 8px; text-align: center; }
     .login-screen .brand span { color: var(--accent); }
     .login-screen p { color: var(--text-2); font-size: 14px; margin-bottom: 24px; text-align: center; }
-    .login-screen input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; color: var(--text); font-size: 15px; margin-bottom: 12px; }
+    .login-screen input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; color: var(--text); font-size: 15px; margin-bottom: 10px; }
     .login-screen input:focus { outline: none; border-color: var(--accent); }
     .login-screen .btn { font-size: 15px; }
-    .login-screen .login-status { color: var(--text-2); font-size: 13px; margin-top: 12px; text-align: center; min-height: 20px; }
+    .login-screen .login-status { color: var(--text-2); font-size: 13px; margin-top: 12px; text-align: center; min-height: 20px; line-height: 1.4; }
     .login-screen .login-status.success { color: var(--success); }
     .login-screen .login-status.error { color: var(--danger); }
+    .login-screen .login-link { background: none; border: none; color: var(--accent); font-size: 13px; font-weight: 600; padding: 10px; margin-top: 10px; text-align: center; cursor: pointer; }
 
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 12px; }
     .header h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
@@ -214,16 +207,16 @@
 </head>
 <body>
 
-<!-- LOGIN SCREEN -->
 <section class="login-screen" id="screen-login">
   <h1 class="brand">Health<span>force</span></h1>
-  <p>Ingresá tu email para recibir un link mágico de acceso. Sin contraseña.</p>
-  <input type="email" id="login-email" placeholder="tu@email.com" autocomplete="email">
-  <button class="btn" id="login-btn" onclick="loginWithMagicLink()">Enviar link</button>
+  <p>Ingresá para acceder a tus entrenamientos.</p>
+  <input type="email" id="login-email" placeholder="tu@email.com" autocomplete="username">
+  <input type="password" id="login-password" placeholder="Contraseña" autocomplete="current-password">
+  <button class="btn" id="login-btn" onclick="loginSubmit()">Entrar</button>
+  <button class="login-link" onclick="loginMagicLink()">Sin contraseña, mandarme un link</button>
   <div class="login-status" id="login-status"></div>
 </section>
 
-<!-- HOME -->
 <section class="screen" id="screen-home">
   <div class="header">
     <div>
@@ -312,18 +305,26 @@
 
 <div class="sync-indicator" id="sync-indicator"><span class="dot"></span> Sincronizando…</div>
 
-<!-- LOG TRAINING MODAL -->
+<div class="modal-overlay" id="modal-set-password">
+  <div class="modal">
+    <h2>Setear contraseña</h2>
+    <p style="color: var(--text-2); font-size: 13px; margin-bottom: 14px;">Para entrar más rápido la próxima vez. Mínimo 6 caracteres.</p>
+    <div class="form-field">
+      <label>Nueva contraseña</label>
+      <input type="password" id="new-password" minlength="6" autocomplete="new-password">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-set-password')">Después</button>
+      <button class="btn" onclick="setPassword()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-log-training">
   <div class="modal">
     <h2>Log entrenamiento</h2>
-    <div class="form-field">
-      <label>Fecha</label>
-      <input type="date" id="log-date">
-    </div>
-    <div class="form-field">
-      <label>Tipo de entrenamiento</label>
-      <select id="log-type"></select>
-    </div>
+    <div class="form-field"><label>Fecha</label><input type="date" id="log-date"></div>
+    <div class="form-field"><label>Tipo de entrenamiento</label><select id="log-type"></select></div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-log-training')">Cancelar</button>
       <button class="btn" onclick="confirmLogTraining()">Comenzar</button>
@@ -331,14 +332,10 @@
   </div>
 </div>
 
-<!-- ADD EXERCISE MODAL -->
 <div class="modal-overlay" id="modal-add-exercise">
   <div class="modal">
     <h2>Agregar ejercicio nuevo</h2>
-    <div class="form-field">
-      <label>Nombre</label>
-      <input type="text" id="ex-name" placeholder="ej: Press inclinado">
-    </div>
+    <div class="form-field"><label>Nombre</label><input type="text" id="ex-name" placeholder="ej: Press inclinado"></div>
     <div class="form-field">
       <label>Músculo primario (opcional)</label>
       <select id="ex-primary">
@@ -364,14 +361,10 @@
   </div>
 </div>
 
-<!-- PICK EXERCISE MODAL -->
 <div class="modal-overlay" id="modal-pick-exercise">
   <div class="modal">
     <h2>Agregar ejercicio al día</h2>
-    <div class="form-field">
-      <label>Buscar</label>
-      <input type="text" id="ex-search" placeholder="Buscar ejercicio..." oninput="filterPickExercises()">
-    </div>
+    <div class="form-field"><label>Buscar</label><input type="text" id="ex-search" placeholder="Buscar ejercicio..." oninput="filterPickExercises()"></div>
     <div id="ex-search-results" style="max-height: 50vh; overflow-y: auto;"></div>
     <button class="btn btn-secondary" style="margin-top: 12px;" onclick="closeModal('modal-pick-exercise'); showAddExerciseModal();">+ No lo encuentro, agregar nuevo</button>
     <button class="btn btn-secondary" style="margin-top: 8px;" onclick="closeModal('modal-pick-exercise')">Cerrar</button>
@@ -381,14 +374,12 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// =============== SUPABASE CLIENT ===============
 const SUPABASE_URL = 'https://zotgrzxuxixplpkptnya.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvdGdyenh1eGl4cGxwa3B0bnlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzODUxMTMsImV4cCI6MjA5Mzk2MTExM30.X3j9jt8599jkocZFfnD5R6d72RVr3fX_JWF6jtIZ3Do';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { detectSessionInUrl: true, persistSession: true, autoRefreshToken: true }
 });
 
-// =============== DATA ===============
 const DAY_TEMPLATES = [
   { type_id: 'day3', name: 'Día 3 — Piernas', short: 'Día 3', desc: 'Funcional, no hipertrofia', category: 'strength', weekday: 1, muscles: ['Piernas','Glúteos','Pantorrillas'] },
   { type_id: 'day4', name: 'Día 4 — Pecho horizontal · Espalda · Brazos', short: 'Día 4', desc: 'Segundo upper, complementario', category: 'strength', weekday: 2, muscles: ['Pecho','Espalda','Brazos'] },
@@ -498,14 +489,10 @@ const CARDIO_PROGRESSION = {
     { week: 12, velocity: 15.5, rounds: 6, series: 3, deload: true }
   ],
   z2: [
-    { week: 1, duration: 30, deload: false },
-    { week: 2, duration: 30, deload: false },
-    { week: 3, duration: 35, deload: false },
-    { week: 4, duration: 40, deload: false },
-    { week: 5, duration: 45, deload: false },
-    { week: 6, duration: 50, deload: false },
-    { week: 7, duration: 55, deload: false },
-    { week: 8, duration: 55, deload: false },
+    { week: 1, duration: 30, deload: false }, { week: 2, duration: 30, deload: false },
+    { week: 3, duration: 35, deload: false }, { week: 4, duration: 40, deload: false },
+    { week: 5, duration: 45, deload: false }, { week: 6, duration: 50, deload: false },
+    { week: 7, duration: 55, deload: false }, { week: 8, duration: 55, deload: false },
     { week: 9, duration: 60, deload: false }
   ]
 };
@@ -516,7 +503,8 @@ const STORAGE_KEYS = {
   workouts: 'hf_workouts',
   userExercises: 'hf_user_exercises',
   userState: 'hf_user_state',
-  draftWorkouts: 'hf_draft_workouts'
+  draftWorkouts: 'hf_draft_workouts',
+  lastEmail: 'hf_last_email'
 };
 
 function loadWorkouts() { return JSON.parse(localStorage.getItem(STORAGE_KEYS.workouts) || '[]'); }
@@ -555,10 +543,7 @@ function getWeekStart(d) {
   dt.setHours(0,0,0,0);
   return dt;
 }
-function getWeekday(d) {
-  const dt = new Date(d);
-  return dt.getDay() === 0 ? 7 : dt.getDay();
-}
+function getWeekday(d) { const dt = new Date(d); return dt.getDay() === 0 ? 7 : dt.getDay(); }
 function dayShortName(weekday) { return ['LUN','MAR','MIE','JUE','VIE','SAB','DOM'][weekday-1]; }
 function templatesForWeekday(weekday) { return DAY_TEMPLATES.filter(t => t.weekday === weekday); }
 function workoutsForDate(dateStr) { return loadWorkouts().filter(w => w.date === dateStr); }
@@ -580,36 +565,98 @@ let currentDraft = null;
 let currentSession = null;
 
 // =============== AUTH ===============
-async function loginWithMagicLink() {
+async function loginSubmit() {
   const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
   const status = document.getElementById('login-status');
   const btn = document.getElementById('login-btn');
   if (!email) { status.textContent = 'Ingresá tu email'; status.className = 'login-status error'; return; }
+
   btn.disabled = true;
-  btn.textContent = 'Enviando...';
+  btn.textContent = 'Entrando...';
   status.textContent = '';
+
+  try {
+    if (password) {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) {
+        if ((error.message || '').toLowerCase().includes('invalid')) {
+          status.innerHTML = 'Email o contraseña inválidos. Si es tu primera vez, dejá la contraseña vacía y mandate un link.';
+          status.className = 'login-status error';
+        } else {
+          status.textContent = error.message;
+          status.className = 'login-status error';
+        }
+      } else {
+        localStorage.setItem(STORAGE_KEYS.lastEmail, email);
+      }
+    } else {
+      // Magic link
+      await sendMagicLink(email);
+    }
+  } catch (e) {
+    status.textContent = e.message || 'Error';
+    status.className = 'login-status error';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Entrar';
+  }
+}
+
+async function loginMagicLink() {
+  const email = document.getElementById('login-email').value.trim();
+  const status = document.getElementById('login-status');
+  if (!email) { status.textContent = 'Ingresá tu email'; status.className = 'login-status error'; return; }
+  await sendMagicLink(email);
+}
+
+async function sendMagicLink(email) {
+  const status = document.getElementById('login-status');
   try {
     const { error } = await sb.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: window.location.origin + window.location.pathname }
     });
     if (error) throw error;
-    status.textContent = 'Te mandamos un mail. Click el link y volvé acá.';
+    localStorage.setItem(STORAGE_KEYS.lastEmail, email);
+    status.textContent = 'Te mandamos un mail. Click el link para entrar.';
     status.className = 'login-status success';
   } catch (e) {
-    status.textContent = e.message || 'Error al enviar el link';
+    status.textContent = e.message || 'Error al mandar link';
     status.className = 'login-status error';
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Enviar link';
   }
+}
+
+async function setPassword() {
+  const pw = document.getElementById('new-password').value;
+  if (!pw || pw.length < 6) { toast('Mínimo 6 caracteres', true); return; }
+  try {
+    const { error } = await sb.auth.updateUser({
+      password: pw,
+      data: { has_password: true }
+    });
+    if (error) throw error;
+    closeModal('modal-set-password');
+    toast('Contraseña guardada');
+  } catch (e) {
+    toast(e.message || 'Error al guardar', true);
+  }
+}
+
+async function maybeOfferSetPassword() {
+  if (!currentSession) return;
+  const meta = currentSession.user.user_metadata || {};
+  if (meta.has_password) return;
+  // Mostrar modal una sola vez tras login
+  document.getElementById('new-password').value = '';
+  document.getElementById('modal-set-password').classList.add('open');
 }
 
 async function logout() {
   if (!confirm('¿Cerrar sesión?')) return;
   await sb.auth.signOut();
-  // Limpiar cache local
   localStorage.removeItem(STORAGE_KEYS.workouts);
+  localStorage.removeItem(STORAGE_KEYS.userExercises);
   showLoginScreen();
 }
 
@@ -617,6 +664,9 @@ function showLoginScreen() {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-login').classList.add('active');
   document.getElementById('bottom-nav').style.display = 'none';
+  // Pre-rellenar email
+  const lastEmail = localStorage.getItem(STORAGE_KEYS.lastEmail);
+  if (lastEmail) document.getElementById('login-email').value = lastEmail;
 }
 
 function showAppScreens() {
@@ -635,13 +685,19 @@ function showSyncIndicator(show) {
 async function syncFromServer() {
   showSyncIndicator(true);
   try {
-    const { data, error } = await sb
+    // Pull workouts
+    const { data: wks, error: wErr } = await sb
       .from('workouts')
       .select('*, workout_sets(*), cardio_metrics(*)')
       .order('date', { ascending: false });
-    if (error) throw error;
-    const localWorkouts = (data || []).map(mapServerToLocal);
-    saveWorkouts(localWorkouts);
+    if (wErr) throw wErr;
+    const localWorkouts = (wks || []).map(mapServerToLocal);
+    // Mergear con pendientes locales (los que tienen _synced: false)
+    const localPending = loadWorkouts().filter(w => w._synced === false);
+    saveWorkouts([...localWorkouts, ...localPending]);
+
+    // Pull user exercises (best-effort: si la columna user_id no existe aún, gracefully fallback)
+    await pullUserExercises();
   } catch (e) {
     console.error('Sync error:', e);
     toast('Sync con servidor falló — usando cache local', true);
@@ -650,13 +706,85 @@ async function syncFromServer() {
   }
 }
 
+async function pullUserExercises() {
+  if (!currentSession) return;
+  try {
+    const { data, error } = await sb
+      .from('exercises')
+      .select('id,name,muscle_group,secondary_muscles,user_id')
+      .eq('user_id', currentSession.user.id);
+    if (error) {
+      // Si la columna user_id no existe (migración no corrida), fallback silencioso
+      if ((error.message || '').toLowerCase().includes('user_id')) return;
+      throw error;
+    }
+    const userExs = (data || []).map(e => ({
+      id: e.id,
+      name: e.name,
+      primary: e.muscle_group,
+      secondary: e.secondary_muscles || [],
+      user_added: true
+    }));
+    // Mergear: lo que está en server + locales-no-pusheados
+    const local = loadUserExercises();
+    const localPending = local.filter(e => e._synced === false);
+    saveUserExercises([...userExs, ...localPending]);
+  } catch (e) {
+    console.warn('pullUserExercises:', e.message);
+  }
+}
+
+async function pushUserExercise(ex) {
+  if (!currentSession) return false;
+  try {
+    const { error } = await sb.from('exercises').insert({
+      id: ex.id,
+      name: ex.name,
+      muscle_group: ex.primary || 'Otro',
+      secondary_muscles: ex.secondary || [],
+      user_id: currentSession.user.id
+    });
+    if (error) throw error;
+    return true;
+  } catch (e) {
+    console.warn('pushUserExercise:', e.message);
+    return false;
+  }
+}
+
+async function retryPendingSyncs() {
+  // Re-sync workouts no sincronizados
+  const all = loadWorkouts();
+  const pending = all.filter(w => w._synced === false);
+  for (const w of pending) {
+    try {
+      const newId = await pushWorkoutToServer(w);
+      w.server_id = newId;
+      delete w._synced;
+    } catch (e) {
+      console.warn('retry workout failed:', e.message);
+    }
+  }
+  saveWorkouts(all);
+
+  // Re-sync exercises no sincronizados
+  const exs = loadUserExercises();
+  const pendingExs = exs.filter(e => e._synced === false);
+  for (const ex of pendingExs) {
+    const ok = await pushUserExercise(ex);
+    if (ok) delete ex._synced;
+  }
+  saveUserExercises(exs);
+}
+
 function mapServerToLocal(sw) {
   const local = {
     server_id: sw.id,
     type_id: sw.type_id,
     date: sw.date,
     completed_at: sw.created_at,
-    notes: sw.notes
+    notes: sw.notes,
+    _synced: true
   };
   if (sw.workout_sets && sw.workout_sets.length) {
     local.sets = {};
@@ -667,25 +795,15 @@ function mapServerToLocal(sw) {
         local.sets[s.exercise_id] = [];
         local.exercise_order.push(s.exercise_id);
       }
-      local.sets[s.exercise_id].push({
-        set_number: s.set_number,
-        weight: s.weight_kg,
-        reps: s.reps,
-        rpe: s.rpe
-      });
+      local.sets[s.exercise_id].push({ set_number: s.set_number, weight: s.weight_kg, reps: s.reps, rpe: s.rpe });
     });
   }
   if (sw.cardio_metrics && sw.cardio_metrics.length) {
     const cm = sw.cardio_metrics[0];
     Object.assign(local, {
-      velocity: cm.velocity_kmh,
-      rounds_completed: cm.rounds_completed,
-      rounds_planned: cm.rounds_planned,
-      series_completed: cm.series_completed,
-      series_planned: cm.series_planned,
-      duration: cm.duration_min,
-      avg_pace: cm.avg_pace_kmh,
-      rpe: cm.rpe
+      velocity: cm.velocity_kmh, rounds_completed: cm.rounds_completed, rounds_planned: cm.rounds_planned,
+      series_completed: cm.series_completed, series_planned: cm.series_planned,
+      duration: cm.duration_min, avg_pace: cm.avg_pace_kmh, rpe: cm.rpe
     });
   }
   return local;
@@ -693,23 +811,15 @@ function mapServerToLocal(sw) {
 
 async function pushWorkoutToServer(localWorkout) {
   const tpl = DAY_TEMPLATES.find(t => t.type_id === localWorkout.type_id);
-  if (!tpl) throw new Error('Tipo de workout desconocido');
-
-  // Si ya existe en server (server_id), borrar primero para reemplazar
+  if (!tpl) throw new Error('Tipo desconocido');
   if (localWorkout.server_id) {
     await sb.from('workouts').delete().eq('id', localWorkout.server_id);
   }
-
-  // Insert workout header
-  const { data: w, error: wErr } = await sb
-    .from('workouts')
-    .insert({
-      type_id: localWorkout.type_id,
-      date: localWorkout.date,
-      notes: localWorkout.notes || null
-    })
-    .select()
-    .single();
+  const { data: w, error: wErr } = await sb.from('workouts').insert({
+    type_id: localWorkout.type_id,
+    date: localWorkout.date,
+    notes: localWorkout.notes || null
+  }).select().single();
   if (wErr) throw wErr;
 
   if (tpl.category === 'strength') {
@@ -718,11 +828,10 @@ async function pushWorkoutToServer(localWorkout) {
     order.forEach(exId => {
       const sets = (localWorkout.sets || {})[exId] || [];
       sets.forEach(s => {
-        if (s.weight !== '' && s.weight != null || s.reps !== '' && s.reps != null) {
+        const hasData = (s.weight !== '' && s.weight != null) || (s.reps !== '' && s.reps != null);
+        if (hasData) {
           setsToInsert.push({
-            workout_id: w.id,
-            exercise_id: exId,
-            set_number: s.set_number,
+            workout_id: w.id, exercise_id: exId, set_number: s.set_number,
             weight_kg: s.weight === '' || s.weight == null ? null : Number(s.weight),
             reps: s.reps === '' || s.reps == null ? null : Number(s.reps),
             rpe: s.rpe === '' || s.rpe == null ? null : Number(s.rpe)
@@ -731,11 +840,11 @@ async function pushWorkoutToServer(localWorkout) {
       });
     });
     if (setsToInsert.length) {
-      const { error: sErr } = await sb.from('workout_sets').insert(setsToInsert);
-      if (sErr) throw sErr;
+      const { error } = await sb.from('workout_sets').insert(setsToInsert);
+      if (error) throw error;
     }
   } else {
-    const cm = {
+    const { error } = await sb.from('cardio_metrics').insert({
       workout_id: w.id,
       velocity_kmh: localWorkout.velocity ? Number(localWorkout.velocity) : null,
       rounds_completed: localWorkout.rounds_completed ? Number(localWorkout.rounds_completed) : null,
@@ -744,11 +853,9 @@ async function pushWorkoutToServer(localWorkout) {
       avg_pace_kmh: localWorkout.avg_pace ? Number(localWorkout.avg_pace) : null,
       rpe: localWorkout.rpe ? Number(localWorkout.rpe) : null,
       notes: localWorkout.notes || null
-    };
-    const { error: cErr } = await sb.from('cardio_metrics').insert(cm);
-    if (cErr) throw cErr;
+    });
+    if (error) throw error;
   }
-
   return w.id;
 }
 
@@ -1090,7 +1197,6 @@ function updateCardio(field, val) {
 async function finishWorkout() {
   if (!currentDraft) return;
   const workouts = loadWorkouts();
-  // Si reemplaza uno existente, conservar server_id para borrar y reinsertar al pushear
   const existing = workouts.find(w => w.type_id === currentDraft.type_id && w.date === currentDraft.date);
   if (existing && existing.server_id) currentDraft.server_id = existing.server_id;
   const filtered = workouts.filter(w => !(w.type_id === currentDraft.type_id && w.date === currentDraft.date));
@@ -1100,18 +1206,21 @@ async function finishWorkout() {
   clearDraft(currentDayTypeId, currentDayDate);
   toast('¡Entrenamiento guardado!');
   showSyncIndicator(true);
-  // Push to server (no bloqueante)
   try {
     const newId = await pushWorkoutToServer(completed);
     completed.server_id = newId;
-    delete completed.id; // limpiar id local si lo había
-    // Update localStorage con server_id actualizado
+    completed._synced = true;
+    delete completed.id;
     const ws2 = loadWorkouts().filter(w => !(w.type_id === completed.type_id && w.date === completed.date));
     ws2.push(completed);
     saveWorkouts(ws2);
   } catch (e) {
     console.error('Push workout failed:', e);
-    toast('Sync falló. Guardado solo local.', true);
+    completed._synced = false;
+    const ws2 = loadWorkouts().filter(w => !(w.type_id === completed.type_id && w.date === completed.date));
+    ws2.push(completed);
+    saveWorkouts(ws2);
+    toast('Sync falló — reintentaremos al volver', true);
   }
   showSyncIndicator(false);
   setTimeout(() => showScreen('home'), 700);
@@ -1125,7 +1234,8 @@ function showAddExerciseModal() {
   document.getElementById('modal-add-exercise').classList.add('open');
 }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-function saveManualExercise() {
+
+async function saveManualExercise() {
   const name = document.getElementById('ex-name').value.trim();
   if (!name) { toast('Falta nombre', true); return; }
   const primary = document.getElementById('ex-primary').value;
@@ -1133,14 +1243,19 @@ function saveManualExercise() {
   const id = 'user-' + name.toLowerCase().replace(/[^a-z0-9]+/g,'-') + '-' + Date.now();
   const ex = { id, name, primary: primary || '', secondary: secondary ? [secondary] : [], user_added: true };
   const arr = loadUserExercises();
+
+  // Push to server (best-effort)
+  const ok = await pushUserExercise(ex);
+  ex._synced = ok;
   arr.push(ex);
   saveUserExercises(arr);
+
   closeModal('modal-add-exercise');
   if (currentDraft && currentDayTypeId && currentDayTypeId.startsWith('day')) {
     addExerciseToDay(id);
-    toast('Ejercicio creado y agregado al día');
+    toast(ok ? 'Ejercicio creado y agregado al día' : 'Agregado al día (sync pendiente)');
   } else {
-    toast('Ejercicio agregado al catálogo');
+    toast(ok ? 'Ejercicio agregado al catálogo' : 'Agregado local (sync pendiente)');
   }
 }
 
@@ -1197,11 +1312,12 @@ function renderHistory() {
     } else if (w.velocity) {
       stats = `${w.velocity} km/h · ${w.series_completed || '—'} series${w.rpe ? ' · RPE ' + w.rpe : ''}`;
     }
+    const syncBadge = w._synced === false ? '<span class="badge" style="background: var(--danger); color: white;">Sin sync</span>' : '';
     return `
       <div class="history-item">
         <div class="history-date">${d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
         <div class="history-name">${tpl ? tpl.name : w.type_id}</div>
-        <div class="history-stats">${stats}</div>
+        <div class="history-stats">${stats} ${syncBadge}</div>
       </div>
     `;
   }).join('');
@@ -1332,23 +1448,25 @@ function toast(msg, isError) {
 
 // =============== INIT ===============
 async function init() {
-  // Check session
   const { data: { session } } = await sb.auth.getSession();
   currentSession = session;
   if (session) {
     showAppScreens();
     await syncFromServer();
+    await retryPendingSyncs();
     renderHome();
+    maybeOfferSetPassword();
   } else {
     showLoginScreen();
   }
-  // Listen for auth changes (magic link redirect, signOut)
   sb.auth.onAuthStateChange(async (event, newSession) => {
     if (newSession && !currentSession) {
       currentSession = newSession;
       showAppScreens();
       await syncFromServer();
+      await retryPendingSyncs();
       renderHome();
+      maybeOfferSetPassword();
     } else if (!newSession && currentSession) {
       currentSession = null;
       showLoginScreen();
