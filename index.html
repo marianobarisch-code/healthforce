@@ -42,11 +42,13 @@
     .screen { display: none; max-width: 600px; margin: 0 auto; padding: 24px 20px 0; }
     .screen.active { display: block; }
 
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 12px; }
     .header h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
     .subtitle { color: var(--text-2); font-size: 13px; margin-top: 2px; }
-    .header-action { width: 44px; height: 44px; border-radius: 50%; background: var(--surface); display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); }
-    .header-action svg { width: 20px; height: 20px; }
+
+    .btn-log-training { background: var(--accent); color: #000; padding: 10px 16px; border-radius: 100px; font-weight: 700; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; transition: opacity 0.15s; flex-shrink: 0; }
+    .btn-log-training:active { opacity: 0.85; }
+    .btn-log-training svg { width: 14px; height: 14px; }
 
     .week-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 20px; }
     .cal-day { background: var(--surface); border-radius: var(--radius-sm); padding: 12px 4px; text-align: center; border: 1px solid var(--border); position: relative; cursor: pointer; transition: transform 0.1s; }
@@ -88,6 +90,10 @@
 
     .back-btn { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-weight: 600; font-size: 14px; margin-bottom: 14px; }
 
+    .day-type-switcher { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
+    .day-type-switcher label { display: block; font-size: 11px; color: var(--text-2); font-weight: 700; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .day-type-switcher select { width: 100%; background: var(--surface-2); border: none; border-radius: 8px; padding: 10px 12px; color: var(--text); font-size: 14px; font-weight: 600; }
+
     .add-exercise-btn { background: transparent; border: 2px dashed var(--border); border-radius: var(--radius); padding: 14px; width: 100%; color: var(--text-2); font-size: 14px; font-weight: 600; margin-bottom: 14px; }
     .add-exercise-btn:hover { border-color: var(--accent); color: var(--accent); }
 
@@ -105,6 +111,13 @@
     .exercise-body { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
     .exercise-card.expanded .exercise-body { display: block; }
 
+    .exercise-actions { display: flex; gap: 6px; margin-bottom: 10px; }
+    .ex-action-btn { width: 36px; height: 36px; border-radius: 10px; background: var(--surface-2); color: var(--text-2); display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+    .ex-action-btn:active { background: #2e2e2e; }
+    .ex-action-btn.danger { color: var(--danger); margin-left: auto; }
+    .ex-action-btn svg { width: 16px; height: 16px; }
+    .ex-action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
     .sets-table-header { display: grid; grid-template-columns: 32px 1fr 1fr 1fr 32px; gap: 8px; padding: 4px 0 8px; font-size: 10px; color: var(--text-3); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
     .set-row { display: grid; grid-template-columns: 32px 1fr 1fr 1fr 32px; gap: 8px; padding: 6px 0; align-items: center; }
     .set-num { font-size: 13px; font-weight: 700; text-align: center; color: var(--text-2); }
@@ -112,7 +125,6 @@
     .set-input:focus, .rpe-select:focus { outline: none; border-color: var(--accent); }
     .remove-set { width: 32px; height: 32px; border-radius: 50%; background: var(--surface-2); color: var(--danger); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; }
     .add-set-btn { width: 100%; padding: 10px; background: var(--surface-2); border-radius: 10px; color: var(--text-2); font-size: 13px; font-weight: 600; margin-top: 8px; }
-    .remove-extra-btn { width: 100%; padding: 10px; background: transparent; border-radius: 10px; color: var(--danger); font-size: 13px; font-weight: 600; margin-top: 4px; }
 
     .btn { background: var(--accent); color: #000; padding: 14px 24px; border-radius: 100px; font-weight: 700; font-size: 15px; width: 100%; transition: opacity 0.15s; }
     .btn:active { opacity: 0.85; }
@@ -184,8 +196,9 @@
       <div class="subtitle" id="home-greeting">Hola, Mariano</div>
       <h1>Healthforce</h1>
     </div>
-    <button class="header-action" onclick="showAddExerciseModal()" title="Agregar ejercicio al catálogo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    <button class="btn-log-training" onclick="showLogTrainingModal()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Log Training
     </button>
   </div>
 
@@ -200,7 +213,7 @@
   <div class="progress-card">
     <div class="progress-header">
       <span class="progress-title">Esta semana</span>
-      <span class="progress-value" id="week-progress-text">0 / 7</span>
+      <span class="progress-value" id="week-progress-text">0 / 6</span>
     </div>
     <div class="progress-bar">
       <div class="progress-bar-fill" id="week-progress-fill" style="width: 0%"></div>
@@ -221,6 +234,10 @@
       <div class="subtitle" id="day-date">—</div>
       <h1 id="day-title">—</h1>
     </div>
+  </div>
+  <div class="day-type-switcher">
+    <label>Tipo de entrenamiento</label>
+    <select id="day-type-select" onchange="switchDayType(this.value)"></select>
   </div>
   <div id="day-content"></div>
 </section>
@@ -254,9 +271,29 @@
   </button>
 </nav>
 
+<!-- LOG TRAINING MODAL -->
+<div class="modal-overlay" id="modal-log-training">
+  <div class="modal">
+    <h2>Log entrenamiento</h2>
+    <div class="form-field">
+      <label>Fecha</label>
+      <input type="date" id="log-date">
+    </div>
+    <div class="form-field">
+      <label>Tipo de entrenamiento</label>
+      <select id="log-type"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-log-training')">Cancelar</button>
+      <button class="btn" onclick="confirmLogTraining()">Comenzar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD EXERCISE TO CATALOG MODAL (solo se abre desde dentro del día) -->
 <div class="modal-overlay" id="modal-add-exercise">
   <div class="modal">
-    <h2>Agregar ejercicio al catálogo</h2>
+    <h2>Agregar ejercicio nuevo</h2>
     <div class="form-field">
       <label>Nombre</label>
       <input type="text" id="ex-name" placeholder="ej: Press inclinado">
@@ -281,11 +318,12 @@
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-add-exercise')">Cancelar</button>
-      <button class="btn" onclick="saveManualExercise()">Guardar</button>
+      <button class="btn" onclick="saveManualExercise()">Guardar y agregar al día</button>
     </div>
   </div>
 </div>
 
+<!-- PICK EXERCISE MODAL -->
 <div class="modal-overlay" id="modal-pick-exercise">
   <div class="modal">
     <h2>Agregar ejercicio al día</h2>
@@ -423,6 +461,8 @@ const CARDIO_PROGRESSION = {
   ]
 };
 
+const WEEK_TARGET = 6; // miércoles es descanso
+
 const STORAGE_KEYS = {
   workouts: 'hf_workouts',
   userExercises: 'hf_user_exercises',
@@ -451,6 +491,7 @@ function clearDraft(typeId, dateStr) {
 
 function getAllExercises() { return [...EXERCISES_BASE, ...loadUserExercises()]; }
 function findExercise(id) { return getAllExercises().find(e => e.id === id); }
+function getExerciseMeta(typeId, exId) { return (DAY_EXERCISES[typeId] || []).find(p => p.id === exId); }
 function todayStr() { return dateToISO(new Date()); }
 function dateToISO(d) {
   const y = d.getFullYear();
@@ -505,6 +546,27 @@ document.querySelectorAll('.nav-btn[data-screen]').forEach(btn => {
   btn.addEventListener('click', () => showScreen(btn.dataset.screen));
 });
 
+// =============== LOG TRAINING MODAL ===============
+function showLogTrainingModal() {
+  // Populate select once
+  const sel = document.getElementById('log-type');
+  sel.innerHTML = DAY_TEMPLATES.map(t => `<option value="${t.type_id}">${t.name}</option>`).join('');
+  // Default: today's date and weekday's first template
+  const today = new Date();
+  document.getElementById('log-date').value = todayStr();
+  const tpls = templatesForWeekday(getWeekday(today));
+  if (tpls.length) sel.value = tpls[0].type_id;
+  document.getElementById('modal-log-training').classList.add('open');
+}
+function confirmLogTraining() {
+  const date = document.getElementById('log-date').value;
+  const typeId = document.getElementById('log-type').value;
+  if (!date || !typeId) { toast('Falta fecha o tipo'); return; }
+  closeModal('modal-log-training');
+  openDay(typeId, date);
+}
+
+// =============== HOME ===============
 function renderHome() {
   const today = new Date();
   const hour = today.getHours();
@@ -544,9 +606,8 @@ function renderHome() {
 
   const weekWorkouts = workoutsThisWeek();
   const daysWithSession = new Set(weekWorkouts.map(w => w.date)).size;
-  const expected = 7;
-  document.getElementById('week-progress-text').textContent = `${daysWithSession} / ${expected}`;
-  document.getElementById('week-progress-fill').style.width = Math.min(100, (daysWithSession / expected) * 100) + '%';
+  document.getElementById('week-progress-text').textContent = `${daysWithSession} / ${WEEK_TARGET}`;
+  document.getElementById('week-progress-fill').style.width = Math.min(100, (daysWithSession / WEEK_TARGET) * 100) + '%';
 
   const gridEl = document.getElementById('day-grid');
   gridEl.innerHTML = '';
@@ -572,6 +633,7 @@ function openToday() {
   if (tpls.length) openDay(tpls[0].type_id, todayStr());
 }
 
+// =============== DAY ===============
 function openDay(typeId, dateStr) {
   currentDayTypeId = typeId;
   currentDayDate = dateStr;
@@ -581,10 +643,20 @@ function openDay(typeId, dateStr) {
   const d = new Date(dateStr + 'T12:00:00');
   document.getElementById('day-date').textContent = d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
 
+  // Type switcher
+  const typeSel = document.getElementById('day-type-select');
+  typeSel.innerHTML = DAY_TEMPLATES.map(t => `<option value="${t.type_id}" ${t.type_id === typeId ? 'selected' : ''}>${t.name}</option>`).join('');
+
   if (tpl.category === 'strength') renderStrengthDay(typeId, dateStr);
   else if (typeId === 'sprints') renderSprintsDay(dateStr);
   else if (typeId === 'z2') renderZ2Day(dateStr);
   else renderSimpleCardio(typeId, dateStr);
+}
+
+function switchDayType(newTypeId) {
+  if (newTypeId === currentDayTypeId) return;
+  // Auto-save del current_draft ya está hecho a cada cambio de input.
+  openDay(newTypeId, currentDayDate);
 }
 
 function loadOrCreateDraft(typeId, dateStr, factory) {
@@ -600,19 +672,31 @@ function loadOrCreateDraft(typeId, dateStr, factory) {
 function renderStrengthDay(typeId, dateStr) {
   const prescribed = DAY_EXERCISES[typeId] || [];
   const draft = loadOrCreateDraft(typeId, dateStr, () => {
-    const d = { type_id: typeId, date: dateStr, sets: {}, extra_exercises: [] };
+    const d = { type_id: typeId, date: dateStr, sets: {}, exercise_order: [] };
     prescribed.forEach(p => {
+      d.exercise_order.push(p.id);
       d.sets[p.id] = Array.from({length: p.sets}, (_, i) => ({ set_number: i+1, weight: '', reps: '', rpe: '' }));
     });
     return d;
   });
+
+  // Migrar drafts viejos (pre-exercise_order)
+  if (!draft.exercise_order) {
+    draft.exercise_order = [];
+    prescribed.forEach(p => { if (!draft.exercise_order.includes(p.id)) draft.exercise_order.push(p.id); });
+    (draft.extra_exercises || []).forEach(id => { if (!draft.exercise_order.includes(id)) draft.exercise_order.push(id); });
+  }
   if (!draft.sets) draft.sets = {};
-  if (!draft.extra_exercises) draft.extra_exercises = [];
-  prescribed.forEach(p => {
-    if (!draft.sets[p.id] || !draft.sets[p.id].length) {
-      draft.sets[p.id] = Array.from({length: p.sets}, (_, i) => ({ set_number: i+1, weight: '', reps: '', rpe: '' }));
+
+  // Asegurar que cada ejercicio tenga sus filas iniciales
+  draft.exercise_order.forEach(exId => {
+    const meta = getExerciseMeta(typeId, exId);
+    const expectedSets = meta ? meta.sets : 1;
+    if (!draft.sets[exId] || !draft.sets[exId].length) {
+      draft.sets[exId] = Array.from({length: expectedSets}, (_, i) => ({ set_number: i+1, weight: '', reps: '', rpe: '' }));
     }
   });
+
   currentDraft = draft;
   saveDraft(typeId, dateStr, draft);
 
@@ -620,53 +704,50 @@ function renderStrengthDay(typeId, dateStr) {
   let html = '<button class="add-exercise-btn" onclick="showPickExerciseModal()">+ Agregar ejercicio</button>';
   html += '<div class="exercise-list">';
 
-  prescribed.forEach(p => {
-    const ex = findExercise(p.id);
+  draft.exercise_order.forEach((exId, idx) => {
+    const ex = findExercise(exId);
     if (!ex) return;
-    const sets = draft.sets[p.id] || [];
-    const ssTag = p.ss_group ? `<span class="ss-tag">SS${p.ss_group}</span>` : '';
+    const meta = getExerciseMeta(typeId, exId);
+    const sets = draft.sets[exId] || [];
+    const ssTag = meta && meta.ss_group ? `<span class="ss-tag">SS${meta.ss_group}</span>` : '';
+    const isFirst = idx === 0;
+    const isLast = idx === draft.exercise_order.length - 1;
+    const metaLine = meta
+      ? `${ssTag}<span>${meta.sets}×${meta.reps}</span>${meta.rir ? `<span>· ${meta.rir}</span>` : ''}${meta.notes ? `<span class="note">${meta.notes}</span>` : ''}`
+      : `<span class="badge">extra</span><span>${ex.primary || ''}</span>`;
     html += `
-      <div class="exercise-card${p.ss_group ? ' superset' : ''}" data-exid="${p.id}">
-        <div class="exercise-header" onclick="toggleExercise('${p.id}')">
+      <div class="exercise-card${meta && meta.ss_group ? ' superset' : ''}" data-exid="${exId}">
+        <div class="exercise-header" onclick="toggleExercise('${exId}')">
           <div class="exercise-info">
             <div class="exercise-name">${ex.name}</div>
-            <div class="exercise-meta">${ssTag}<span>${p.sets}×${p.reps}</span>${p.rir ? `<span>· ${p.rir}</span>` : ''}${p.notes ? `<span class="note">${p.notes}</span>` : ''}</div>
+            <div class="exercise-meta">${metaLine}</div>
           </div>
           <div class="exercise-collapse"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg></div>
         </div>
         <div class="exercise-body">
-          <div class="sets-table-header"><span>#</span><span>Peso (kg)</span><span>Reps</span><span>RPE</span><span></span></div>
-          <div class="sets-list" id="sets-${p.id}">${renderSets(p.id, sets)}</div>
-          <button class="add-set-btn" onclick="addSet('${p.id}')">+ Agregar serie</button>
-        </div>
-      </div>
-    `;
-  });
-
-  draft.extra_exercises.forEach(extId => {
-    const ex = findExercise(extId);
-    if (!ex) return;
-    const sets = draft.sets[extId] || [];
-    html += `
-      <div class="exercise-card" data-exid="${extId}">
-        <div class="exercise-header" onclick="toggleExercise('${extId}')">
-          <div class="exercise-info">
-            <div class="exercise-name">${ex.name}</div>
-            <div class="exercise-meta"><span class="badge">extra</span><span>${ex.primary || ''}</span></div>
+          <div class="exercise-actions">
+            <button class="ex-action-btn" onclick="moveExercise('${exId}', -1)" ${isFirst ? 'disabled' : ''} title="Subir">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <button class="ex-action-btn" onclick="moveExercise('${exId}', 1)" ${isLast ? 'disabled' : ''} title="Bajar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <button class="ex-action-btn danger" onclick="removeExerciseFromDay('${exId}')" title="Quitar del día">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 01-2 2H9a2 2 0 01-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            </button>
           </div>
-          <div class="exercise-collapse"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg></div>
-        </div>
-        <div class="exercise-body">
           <div class="sets-table-header"><span>#</span><span>Peso (kg)</span><span>Reps</span><span>RPE</span><span></span></div>
-          <div class="sets-list" id="sets-${extId}">${renderSets(extId, sets)}</div>
-          <button class="add-set-btn" onclick="addSet('${extId}')">+ Agregar serie</button>
-          <button class="remove-extra-btn" onclick="removeExtraExercise('${extId}')">Quitar este ejercicio</button>
+          <div class="sets-list" id="sets-${exId}">${renderSets(exId, sets)}</div>
+          <button class="add-set-btn" onclick="addSet('${exId}')">+ Agregar serie</button>
         </div>
       </div>
     `;
   });
 
   html += '</div>';
+  if (!draft.exercise_order.length) {
+    html += '<div class="empty">No hay ejercicios cargados. Tocá "+ Agregar ejercicio" arriba.</div>';
+  }
   html += `<button class="btn" onclick="finishWorkout()">Finalizar entrenamiento</button>`;
   content.innerHTML = html;
 
@@ -713,14 +794,25 @@ function removeSet(exId, idx) {
   saveDraft(currentDayTypeId, currentDayDate, currentDraft);
   document.getElementById('sets-' + exId).innerHTML = renderSets(exId, arr);
 }
-function removeExtraExercise(exId) {
-  if (!confirm('¿Quitar este ejercicio del log?')) return;
-  currentDraft.extra_exercises = (currentDraft.extra_exercises || []).filter(id => id !== exId);
+function moveExercise(exId, delta) {
+  const order = currentDraft.exercise_order;
+  const idx = order.indexOf(exId);
+  if (idx < 0) return;
+  const newIdx = idx + delta;
+  if (newIdx < 0 || newIdx >= order.length) return;
+  [order[idx], order[newIdx]] = [order[newIdx], order[idx]];
+  saveDraft(currentDayTypeId, currentDayDate, currentDraft);
+  renderStrengthDay(currentDayTypeId, currentDayDate);
+}
+function removeExerciseFromDay(exId) {
+  if (!confirm('¿Quitar este ejercicio del día?')) return;
+  currentDraft.exercise_order = currentDraft.exercise_order.filter(id => id !== exId);
   delete currentDraft.sets[exId];
   saveDraft(currentDayTypeId, currentDayDate, currentDraft);
   renderStrengthDay(currentDayTypeId, currentDayDate);
 }
 
+// =============== CARDIO ===============
 function getCurrentWeek() { return loadUserState().current_week || 1; }
 
 function renderSprintsDay(dateStr) {
@@ -737,29 +829,11 @@ function renderSprintsDay(dateStr) {
       <div class="meta">Formato 20" / 10" · inclinación 1°</div>
     </div>
     <div class="cardio-log-form">
-      <div class="form-field">
-        <label>Velocidad real (km/h)</label>
-        <input type="number" step="0.1" value="${draft.velocity ?? prescription.velocity}" onchange="updateCardio('velocity', this.value)">
-      </div>
-      <div class="form-field">
-        <label>Series completadas (de ${prescription.series})</label>
-        <input type="number" value="${draft.series_completed ?? ''}" placeholder="${prescription.series}" onchange="updateCardio('series_completed', this.value)">
-      </div>
-      <div class="form-field">
-        <label>Rondas última serie (de ${prescription.rounds})</label>
-        <input type="number" value="${draft.rounds_completed ?? ''}" placeholder="${prescription.rounds}" onchange="updateCardio('rounds_completed', this.value)">
-      </div>
-      <div class="form-field">
-        <label>RPE 1-5</label>
-        <select onchange="updateCardio('rpe', this.value)">
-          <option value="">—</option>
-          ${[1,2,3,4,5].map(r => `<option value="${r}" ${draft.rpe == r ? 'selected' : ''}>${r}</option>`).join('')}
-        </select>
-      </div>
-      <div class="form-field">
-        <label>Notas (opcional)</label>
-        <input type="text" value="${draft.notes ?? ''}" onchange="updateCardio('notes', this.value)">
-      </div>
+      <div class="form-field"><label>Velocidad real (km/h)</label><input type="number" step="0.1" value="${draft.velocity ?? prescription.velocity}" onchange="updateCardio('velocity', this.value)"></div>
+      <div class="form-field"><label>Series completadas (de ${prescription.series})</label><input type="number" value="${draft.series_completed ?? ''}" placeholder="${prescription.series}" onchange="updateCardio('series_completed', this.value)"></div>
+      <div class="form-field"><label>Rondas última serie (de ${prescription.rounds})</label><input type="number" value="${draft.rounds_completed ?? ''}" placeholder="${prescription.rounds}" onchange="updateCardio('rounds_completed', this.value)"></div>
+      <div class="form-field"><label>RPE 1-5</label><select onchange="updateCardio('rpe', this.value)"><option value="">—</option>${[1,2,3,4,5].map(r => `<option value="${r}" ${draft.rpe == r ? 'selected' : ''}>${r}</option>`).join('')}</select></div>
+      <div class="form-field"><label>Notas (opcional)</label><input type="text" value="${draft.notes ?? ''}" onchange="updateCardio('notes', this.value)"></div>
     </div>
     <button class="btn" onclick="finishWorkout()">Finalizar entrenamiento</button>
   `;
@@ -779,25 +853,10 @@ function renderZ2Day(dateStr) {
       <div class="meta">Conversacional · 65-75% FCmax · aire libre</div>
     </div>
     <div class="cardio-log-form">
-      <div class="form-field">
-        <label>Duración real (min)</label>
-        <input type="number" value="${draft.duration ?? ''}" placeholder="${prescription.duration}" onchange="updateCardio('duration', this.value)">
-      </div>
-      <div class="form-field">
-        <label>Ritmo promedio km/h (opcional)</label>
-        <input type="number" step="0.1" value="${draft.avg_pace ?? ''}" onchange="updateCardio('avg_pace', this.value)">
-      </div>
-      <div class="form-field">
-        <label>RPE 1-5</label>
-        <select onchange="updateCardio('rpe', this.value)">
-          <option value="">—</option>
-          ${[1,2,3,4,5].map(r => `<option value="${r}" ${draft.rpe == r ? 'selected' : ''}>${r}</option>`).join('')}
-        </select>
-      </div>
-      <div class="form-field">
-        <label>Notas (opcional)</label>
-        <input type="text" value="${draft.notes ?? ''}" onchange="updateCardio('notes', this.value)">
-      </div>
+      <div class="form-field"><label>Duración real (min)</label><input type="number" value="${draft.duration ?? ''}" placeholder="${prescription.duration}" onchange="updateCardio('duration', this.value)"></div>
+      <div class="form-field"><label>Ritmo promedio km/h (opcional)</label><input type="number" step="0.1" value="${draft.avg_pace ?? ''}" onchange="updateCardio('avg_pace', this.value)"></div>
+      <div class="form-field"><label>RPE 1-5</label><select onchange="updateCardio('rpe', this.value)"><option value="">—</option>${[1,2,3,4,5].map(r => `<option value="${r}" ${draft.rpe == r ? 'selected' : ''}>${r}</option>`).join('')}</select></div>
+      <div class="form-field"><label>Notas (opcional)</label><input type="text" value="${draft.notes ?? ''}" onchange="updateCardio('notes', this.value)"></div>
     </div>
     <button class="btn" onclick="finishWorkout()">Finalizar entrenamiento</button>
   `;
@@ -810,21 +869,9 @@ function renderSimpleCardio(typeId, dateStr) {
 
   document.getElementById('day-content').innerHTML = `
     <div class="cardio-log-form">
-      <div class="form-field">
-        <label>Duración (min)</label>
-        <input type="number" value="${draft.duration ?? ''}" onchange="updateCardio('duration', this.value)">
-      </div>
-      <div class="form-field">
-        <label>RPE 1-5</label>
-        <select onchange="updateCardio('rpe', this.value)">
-          <option value="">—</option>
-          ${[1,2,3,4,5].map(r => `<option value="${r}" ${draft.rpe == r ? 'selected' : ''}>${r}</option>`).join('')}
-        </select>
-      </div>
-      <div class="form-field">
-        <label>Notas (opcional)</label>
-        <input type="text" value="${draft.notes ?? ''}" onchange="updateCardio('notes', this.value)">
-      </div>
+      <div class="form-field"><label>Duración (min)</label><input type="number" value="${draft.duration ?? ''}" onchange="updateCardio('duration', this.value)"></div>
+      <div class="form-field"><label>RPE 1-5</label><select onchange="updateCardio('rpe', this.value)"><option value="">—</option>${[1,2,3,4,5].map(r => `<option value="${r}" ${draft.rpe == r ? 'selected' : ''}>${r}</option>`).join('')}</select></div>
+      <div class="form-field"><label>Notas (opcional)</label><input type="text" value="${draft.notes ?? ''}" onchange="updateCardio('notes', this.value)"></div>
     </div>
     <button class="btn" onclick="finishWorkout()">Finalizar entrenamiento</button>
   `;
@@ -847,6 +894,7 @@ function finishWorkout() {
   setTimeout(() => showScreen('home'), 700);
 }
 
+// =============== ADD MANUAL EXERCISE ===============
 function showAddExerciseModal() {
   document.getElementById('ex-name').value = '';
   document.getElementById('ex-primary').value = '';
@@ -865,9 +913,16 @@ function saveManualExercise() {
   arr.push(ex);
   saveUserExercises(arr);
   closeModal('modal-add-exercise');
-  toast('Ejercicio agregado');
+  // Auto-agregar al día actual si estamos en un día de fuerza
+  if (currentDraft && currentDayTypeId && currentDayTypeId.startsWith('day')) {
+    addExerciseToDay(id);
+    toast('Ejercicio creado y agregado al día');
+  } else {
+    toast('Ejercicio agregado al catálogo');
+  }
 }
 
+// =============== PICK EXERCISE ===============
 function showPickExerciseModal() {
   document.getElementById('ex-search').value = '';
   filterPickExercises();
@@ -887,9 +942,9 @@ function filterPickExercises() {
 }
 function addExerciseToDay(exId) {
   if (!currentDraft) return;
-  if (!currentDraft.extra_exercises) currentDraft.extra_exercises = [];
-  if (!currentDraft.extra_exercises.includes(exId)) {
-    currentDraft.extra_exercises.push(exId);
+  if (!currentDraft.exercise_order) currentDraft.exercise_order = [];
+  if (!currentDraft.exercise_order.includes(exId)) {
+    currentDraft.exercise_order.push(exId);
     if (!currentDraft.sets[exId]) currentDraft.sets[exId] = [{ set_number: 1, weight: '', reps: '', rpe: '' }];
     saveDraft(currentDayTypeId, currentDayDate, currentDraft);
   }
@@ -899,6 +954,7 @@ function addExerciseToDay(exId) {
   }
 }
 
+// =============== HISTORY ===============
 function renderHistory() {
   const workouts = loadWorkouts().slice().sort((a,b) => b.date.localeCompare(a.date));
   const list = document.getElementById('history-list');
@@ -929,6 +985,7 @@ function renderHistory() {
   }).join('');
 }
 
+// =============== ANALYTICS ===============
 let analyticsRange = 'week-mon';
 document.querySelectorAll('.range-pill').forEach(p => {
   p.addEventListener('click', () => {
@@ -976,35 +1033,13 @@ function renderAnalytics() {
 
   document.getElementById('analytics-content').innerHTML = `
     <div class="stat-grid">
-      <div class="stat-card">
-        <div class="stat-label">Sesiones</div>
-        <div class="stat-value">${sessionsCount}</div>
-        <div class="stat-meta">en el rango</div>
-      </div>
-      <div class="stat-card accent">
-        <div class="stat-label">Streak</div>
-        <div class="stat-value">${streak}</div>
-        <div class="stat-meta">${streak === 1 ? 'día' : 'días'} seguidos</div>
-      </div>
-      <div class="stat-card accent-3">
-        <div class="stat-label">Volumen</div>
-        <div class="stat-value">${Math.round(totalVolume).toLocaleString()}</div>
-        <div class="stat-meta">kg·rep</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">RPE promedio</div>
-        <div class="stat-value">${avgRpe}</div>
-        <div class="stat-meta">de 5</div>
-      </div>
+      <div class="stat-card"><div class="stat-label">Sesiones</div><div class="stat-value">${sessionsCount}</div><div class="stat-meta">en el rango</div></div>
+      <div class="stat-card accent"><div class="stat-label">Streak</div><div class="stat-value">${streak}</div><div class="stat-meta">${streak === 1 ? 'día' : 'días'} seguidos</div></div>
+      <div class="stat-card accent-3"><div class="stat-label">Volumen</div><div class="stat-value">${Math.round(totalVolume).toLocaleString()}</div><div class="stat-meta">kg·rep</div></div>
+      <div class="stat-card"><div class="stat-label">RPE promedio</div><div class="stat-value">${avgRpe}</div><div class="stat-meta">de 5</div></div>
     </div>
-    <div class="chart-card">
-      <h3>Volumen por grupo muscular</h3>
-      <div class="chart-container"><canvas id="chart-volume"></canvas></div>
-    </div>
-    <div class="chart-card">
-      <h3>Sesiones por tipo</h3>
-      <div class="chart-container"><canvas id="chart-types"></canvas></div>
-    </div>
+    <div class="chart-card"><h3>Volumen por grupo muscular</h3><div class="chart-container"><canvas id="chart-volume"></canvas></div></div>
+    <div class="chart-card"><h3>Sesiones por tipo</h3><div class="chart-container"><canvas id="chart-types"></canvas></div></div>
   `;
   renderVolumeChart(filtered);
   renderTypesChart(filtered);
