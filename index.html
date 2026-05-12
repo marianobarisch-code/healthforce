@@ -135,6 +135,24 @@
     .nav-btn.active { background: var(--accent); color: #000; }
     .nav-btn svg { width: 22px; height: 22px; }
 
+    /* History toggle inside Analytics */
+    .history-toggle { margin-top: 28px; border-top: 1px solid var(--border); padding-top: 4px; }
+    .history-toggle summary { display: flex; justify-content: space-between; align-items: center; cursor: pointer; color: var(--text-2); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; list-style: none; padding: 12px 0; }
+    .history-toggle summary::-webkit-details-marker { display: none; }
+    .history-toggle[open] .chev { transform: rotate(180deg); }
+    .history-toggle .chev { transition: transform 0.2s; }
+
+    /* Insights screen */
+    .insights-placeholder { text-align: center; padding: 56px 16px 32px; color: var(--text-2); }
+    .insights-placeholder svg { width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.4; }
+    .insights-placeholder h3 { color: var(--text); font-size: 18px; font-weight: 700; margin-bottom: 10px; letter-spacing: -0.01em; }
+    .insights-placeholder p { font-size: 14px; line-height: 1.6; max-width: 280px; margin: 0 auto; }
+
+    /* Cal-day: todos son clickeables, días sin sesión tienen indicador sutil */
+    .cal-day { cursor: pointer; }
+    .cal-day.no-session { opacity: 0.55; }
+    .cal-day.no-session:active { opacity: 1; border-color: var(--accent); }
+
     .back-btn { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-weight: 600; font-size: 14px; margin-bottom: 14px; }
 
     .day-type-switcher { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
@@ -334,11 +352,6 @@
   <div id="day-content"></div>
 </section>
 
-<section class="screen" id="screen-history">
-  <div class="header"><h1>Historial</h1></div>
-  <div id="history-list"></div>
-</section>
-
 <section class="screen" id="screen-analytics">
   <div class="header"><h1>Stats</h1></div>
   <div class="progress-card">
@@ -356,17 +369,29 @@
     <button class="range-pill" data-range="ytd">YTD</button>
   </div>
   <div id="analytics-content"></div>
+  <details class="history-toggle" id="history-toggle">
+    <summary>
+      <span>Historial</span>
+      <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+    </summary>
+    <div id="history-list"></div>
+  </details>
+</section>
+
+<section class="screen" id="screen-insights">
+  <div class="header"><h1>Insights</h1></div>
+  <div id="insights-content"></div>
 </section>
 
 <nav class="nav" id="bottom-nav">
   <button class="nav-btn active" data-screen="home" title="Inicio">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
   </button>
-  <button class="nav-btn" data-screen="history" title="Historial">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-  </button>
   <button class="nav-btn" data-screen="analytics" title="Stats">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+  </button>
+  <button class="nav-btn" data-screen="insights" title="Insights">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
   </button>
 </nav>
 
@@ -441,6 +466,21 @@
     <div id="ex-search-results" style="max-height: 50vh; overflow-y: auto;"></div>
     <button class="btn btn-secondary" style="margin-top: 12px;" onclick="closeModal('modal-pick-exercise'); showAddExerciseModal();">+ No lo encuentro, agregar nuevo</button>
     <button class="btn btn-secondary" style="margin-top: 8px;" onclick="closeModal('modal-pick-exercise')">Cerrar</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-assign-day">
+  <div class="modal">
+    <h2>Asignar entrenamiento</h2>
+    <p id="assign-day-label" style="color: var(--text-2); font-size: 13px; margin-bottom: 14px;"></p>
+    <div class="form-field">
+      <label>Tipo de entrenamiento</label>
+      <select id="assign-day-type"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-assign-day')">Cancelar</button>
+      <button class="btn" onclick="confirmAssignDay()">Comenzar</button>
+    </div>
   </div>
 </div>
 
@@ -1047,8 +1087,8 @@ function showScreen(name) {
   if (navBtn) navBtn.classList.add('active');
   currentScreen = name;
   if (name === 'home') renderHome();
-  if (name === 'history') renderHistory();
   if (name === 'analytics') renderAnalytics();
+  if (name === 'insights') renderInsights();
   window.scrollTo(0, 0);
 }
 
@@ -1104,11 +1144,13 @@ function renderWeekCal() {
     const isToday = dateStr === todayStr();
     const completed = workoutsForDate(dateStr).length > 0;
     const div = document.createElement('div');
-    div.className = 'cal-day' + (isToday ? ' today' : '') + (completed ? ' completed' : '');
+    const tpls = templatesForWeekday(i+1);
+    const hasSession = tpls.length > 0;
+    div.className = 'cal-day' + (isToday ? ' today' : '') + (completed ? ' completed' : '') + (!hasSession && !completed ? ' no-session' : '');
     div.innerHTML = `<div class="label">${dayShortName(i+1)}</div><div class="num">${d.getDate()}</div>`;
     div.onclick = () => {
-      const tpls = templatesForWeekday(i+1);
-      if (tpls.length) openDay(tpls[0].type_id, dateStr);
+      if (hasSession) openDay(tpls[0].type_id, dateStr);
+      else openAssignDayModal(dateStr);
     };
     calEl.appendChild(div);
   }
@@ -1606,6 +1648,41 @@ function addExerciseToDay(exId) {
   }
 }
 
+// =============== ASSIGN DAY MODAL ===============
+let assignDayTargetDate = '';
+
+function openAssignDayModal(dateStr) {
+  assignDayTargetDate = dateStr;
+  const d = new Date(dateStr + 'T12:00:00');
+  document.getElementById('assign-day-label').textContent =
+    d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+  document.getElementById('assign-day-type').innerHTML =
+    DAY_TEMPLATES.map(t => `<option value="${t.type_id}">${t.name}</option>`).join('');
+  document.getElementById('modal-assign-day').classList.add('open');
+}
+
+function confirmAssignDay() {
+  const typeId = document.getElementById('assign-day-type').value;
+  if (!typeId || !assignDayTargetDate) return;
+  closeModal('modal-assign-day');
+  openDay(typeId, assignDayTargetDate);
+}
+
+// =============== INSIGHTS ===============
+function renderInsights() {
+  const el = document.getElementById('insights-content');
+  el.innerHTML = `
+    <div class="insights-placeholder">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 16v-4M12 8h.01"/>
+      </svg>
+      <h3>Insights en construcción</h3>
+      <p>Acá vas a ver patrones de progresión, alertas de grupos musculares y recomendaciones personalizadas basadas en tus sesiones.</p>
+    </div>
+  `;
+}
+
 function renderHistory() {
   const workouts = loadWorkouts().slice().sort((a,b) => b.date.localeCompare(a.date));
   const list = document.getElementById('history-list');
@@ -1713,6 +1790,7 @@ function renderAnalytics() {
   if (sortedExs.length) renderProgressionChart(progressionExId);
   renderVolumeChart(filtered);
   renderTypesChart(filtered);
+  renderHistory();
 }
 
 function onProgressionExChange(exId) {
