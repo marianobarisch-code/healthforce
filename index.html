@@ -1790,10 +1790,10 @@ function computeMuscleWeekIndex() {
     });
 
     const sets_score = Math.min(1, totalSets / group.targetSets);
-    const avg_reps = totalSets > 0 ? totalReps / totalSets : 0;
-    const reps_score = Math.min(1, avg_reps / 8);
-    const effort_score = rpeCount > 0 ? Math.min(1, (totalRPE / rpeCount) / 4) : sets_score;
-    const score = (sets_score + reps_score + effort_score) / 3;
+    const effort_score = rpeCount > 0 ? Math.min(1, (totalRPE / rpeCount) / 4) : null;
+    const score = effort_score !== null
+      ? 0.7 * sets_score + 0.3 * effort_score
+      : sets_score;
     const pct = Math.round(score * 100);
 
     let status;
