@@ -153,6 +153,23 @@
     .cal-day.no-session { opacity: 0.55; }
     .cal-day.no-session:active { opacity: 1; border-color: var(--accent); }
 
+    /* Muscle Week Dashboard */
+    .muscle-bars { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
+    .muscle-bar-item { background: var(--surface); border-radius: var(--radius); padding: 12px 14px; border: 1px solid var(--border); }
+    .muscle-bar-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .muscle-bar-name { font-size: 14px; font-weight: 700; flex: 1; letter-spacing: -0.01em; }
+    .muscle-bar-pct { font-size: 13px; font-weight: 700; color: var(--text-2); }
+    .muscle-bar-status { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 8px; border-radius: 100px; flex-shrink: 0; }
+    .muscle-bar-status.green { background: rgba(34,197,94,0.15); color: var(--success); }
+    .muscle-bar-status.yellow { background: rgba(250,204,21,0.15); color: #facc15; }
+    .muscle-bar-status.red { background: rgba(239,68,68,0.15); color: var(--danger); }
+    .muscle-bar-status.neutral { background: var(--surface-2); color: var(--text-3); }
+    .muscle-bar-track { height: 5px; background: var(--surface-2); border-radius: 100px; overflow: hidden; }
+    .muscle-bar-fill { height: 100%; border-radius: 100px; transition: width 0.5s ease; }
+    .muscle-sub-warnings { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+    .muscle-sub-warn { font-size: 11px; color: #facc15; display: flex; align-items: center; gap: 5px; line-height: 1.3; }
+    .muscle-sub-warn svg { flex-shrink: 0; }
+
     .back-btn { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-weight: 600; font-size: 14px; margin-bottom: 14px; }
 
     .day-type-switcher { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
@@ -322,6 +339,8 @@
       <div class="log-training-hero-sub" id="log-training-hero-sub">Tocá para cargar un entrenamiento</div>
     </div>
   </button>
+
+  <div id="muscle-week-dashboard"></div>
 
   <div class="today-routines" id="today-routines"></div>
 
@@ -1210,6 +1229,7 @@ function renderHome() {
 
   renderWeekCal();
   attachWeekSwipe();
+  renderMuscleWeekDashboard();
 
   // Routines de hoy
   const todayWeekday = getWeekday(today);
@@ -1664,6 +1684,166 @@ function addExerciseToDay(exId) {
   if (currentDraft.type_id && currentDraft.type_id.startsWith('day')) {
     renderStrengthDay(currentDayTypeId, currentDayDate);
   }
+}
+
+// =============== MUSCLE WEEK DASHBOARD ===============
+
+const MUSCLE_GROUPS = [
+  {
+    id: 'pecho', name: 'Pecho', targetSets: 9,
+    exercises: ['incline-db','incline-bench','bench-press','db-bench','cable-fly','pec-deck','chest-fly','dips-chest'],
+    subGroups: [
+      { name: 'Clavicular', exercises: ['incline-db','incline-bench'] },
+      { name: 'Esternal / medio', exercises: ['bench-press','db-bench','cable-fly','pec-deck','chest-fly','dips-chest'] }
+    ]
+  },
+  {
+    id: 'espalda', name: 'Espalda', targetSets: 9,
+    exercises: ['lat-pulldown','pull-ups','technogym-row','db-row-uni','cable-row','barbell-row'],
+    subGroups: [
+      { name: 'Ancha (vertical)', exercises: ['lat-pulldown','pull-ups'] },
+      { name: 'Media (horizontal)', exercises: ['technogym-row','db-row-uni','cable-row','barbell-row'] }
+    ]
+  },
+  {
+    id: 'hombros', name: 'Hombros', targetSets: 9,
+    exercises: ['machine-ohp','ohp','db-ohp','lateral-raise-cable','lateral-raise-db','face-pull','rear-delt-fly'],
+    subGroups: [
+      { name: 'Anterior', exercises: ['machine-ohp','ohp','db-ohp'] },
+      { name: 'Lateral', exercises: ['lateral-raise-cable','lateral-raise-db'] },
+      { name: 'Posterior', exercises: ['face-pull','rear-delt-fly'] }
+    ]
+  },
+  {
+    id: 'brazos', name: 'Brazos', targetSets: 9,
+    exercises: ['incline-db-curl','hammer-curl','barbell-curl','db-curl','preacher-curl','overhead-ext-rope','tricep-pushdown','dips-tricep','skull-crusher'],
+    subGroups: [
+      { name: 'Bíceps', exercises: ['incline-db-curl','hammer-curl','barbell-curl','db-curl','preacher-curl'] },
+      { name: 'Tríceps', exercises: ['overhead-ext-rope','tricep-pushdown','dips-tricep','skull-crusher'] }
+    ]
+  },
+  {
+    id: 'piernas', name: 'Piernas', targetSets: 9,
+    exercises: ['squat','bulgarian-split','leg-extension','hip-thrust','rdl','leg-curl'],
+    subGroups: [
+      { name: 'Cuádriceps', exercises: ['squat','bulgarian-split','leg-extension'] },
+      { name: 'Posterior / glúteo', exercises: ['hip-thrust','rdl','leg-curl'] }
+    ]
+  },
+  {
+    id: 'cardio', name: 'Zona Exigente', targetSets: 1, isCardio: true,
+    exercises: ['sprints','padel'],
+    subGroups: []
+  }
+];
+
+function computeMuscleWeekIndex() {
+  const ws = getWeekStart(new Date());
+  const we = new Date(ws); we.setDate(we.getDate() + 6);
+  const weekWorkouts = loadWorkouts().filter(w => {
+    const d = new Date(w.date + 'T12:00:00');
+    return d >= ws && d <= we;
+  });
+
+  // Fracción de semana transcurrida (0=lunes AM, 1=domingo PM)
+  const todayJs = new Date().getDay(); // 0=dom,1=lun...6=sab
+  const dayIdx = todayJs === 0 ? 6 : todayJs - 1; // 0=lun, 6=dom
+  const weekElapsed = dayIdx / 6;
+
+  return MUSCLE_GROUPS.map(group => {
+    if (group.isCardio) {
+      const sessions = weekWorkouts.filter(w => group.exercises.includes(w.type_id)).length;
+      const score = Math.min(1, sessions);
+      let status;
+      if (score >= 1) status = 'green';
+      else if (weekElapsed >= 0.7) status = 'red';
+      else if (weekElapsed >= 0.5) status = 'yellow';
+      else status = 'neutral';
+      return { ...group, score, pct: Math.round(score * 100), status, warnings: [] };
+    }
+
+    let totalSets = 0, totalReps = 0, totalRPE = 0, rpeCount = 0;
+    const subSetCounts = group.subGroups.map(() => 0);
+
+    weekWorkouts.forEach(w => {
+      if (!w.sets) return;
+      Object.entries(w.sets).forEach(([exId, sets]) => {
+        if (!group.exercises.includes(exId)) return;
+        const done = (sets || []).filter(s => s.reps && +s.reps > 0);
+        totalSets += done.length;
+        totalReps += done.reduce((a, s) => a + (+s.reps || 0), 0);
+        done.forEach(s => { if (s.rpe) { totalRPE += +s.rpe; rpeCount++; } });
+        group.subGroups.forEach((sg, i) => {
+          if (sg.exercises.includes(exId)) subSetCounts[i] += done.length;
+        });
+      });
+    });
+
+    const sets_score = Math.min(1, totalSets / group.targetSets);
+    const avg_reps = totalSets > 0 ? totalReps / totalSets : 0;
+    const reps_score = Math.min(1, avg_reps / 8);
+    const effort_score = rpeCount > 0 ? Math.min(1, (totalRPE / rpeCount) / 4) : sets_score;
+    const score = (sets_score + reps_score + effort_score) / 3;
+    const pct = Math.round(score * 100);
+
+    let status;
+    if (pct >= 70) status = 'green';
+    else if (weekElapsed >= 0.5 && pct < 40) status = 'red';
+    else if (weekElapsed >= 0.3 && pct < 70) status = 'yellow';
+    else status = 'neutral';
+
+    // Warnings de sub-grupos (solo desde mitad de semana)
+    const warnings = [];
+    if (weekElapsed >= 0.5) {
+      const targetPerSub = group.targetSets / Math.max(1, group.subGroups.length);
+      group.subGroups.forEach((sg, i) => {
+        const subScore = subSetCounts[i] / targetPerSub;
+        if (subScore < 0.5) warnings.push(sg.name);
+      });
+    }
+
+    return { ...group, score, pct, status, warnings };
+  });
+}
+
+function renderMuscleWeekDashboard() {
+  const el = document.getElementById('muscle-week-dashboard');
+  if (!el) return;
+  const data = computeMuscleWeekIndex();
+
+  const warnIcon = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#facc15" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+
+  el.innerHTML = `
+    <div class="section-title" style="margin: 20px 0 12px;">Progreso semanal</div>
+    <div class="muscle-bars">
+      ${data.map(g => {
+        const barColor = g.status === 'green' ? 'var(--success)'
+          : g.status === 'yellow' ? '#facc15'
+          : g.status === 'red' ? 'var(--danger)'
+          : 'var(--text-3)';
+        const statusLabel = g.status === 'green' ? 'On track'
+          : g.status === 'yellow' ? 'In progress'
+          : g.status === 'red' ? 'Atrasado'
+          : 'Iniciando';
+        const warningHTML = g.warnings.length
+          ? `<div class="muscle-sub-warnings">${g.warnings.map(w =>
+              `<span class="muscle-sub-warn">${warnIcon} ${w} sin atención</span>`
+            ).join('')}</div>`
+          : '';
+        return `
+          <div class="muscle-bar-item">
+            <div class="muscle-bar-header">
+              <span class="muscle-bar-name">${g.name}</span>
+              <span class="muscle-bar-pct">${g.pct}%</span>
+              <span class="muscle-bar-status ${g.status}">${statusLabel}</span>
+            </div>
+            <div class="muscle-bar-track">
+              <div class="muscle-bar-fill" style="width:${g.pct}%;background:${barColor};"></div>
+            </div>
+            ${warningHTML}
+          </div>`;
+      }).join('')}
+    </div>`;
 }
 
 // =============== ASSIGN DAY MODAL ===============
