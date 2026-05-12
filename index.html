@@ -501,7 +501,9 @@ const DAY_TEMPLATES = [
   { type_id: 'sprints', name: 'Sprints', short: 'Sprints', desc: 'VO2max + capacidad anaeróbica', category: 'cardio_intervals', weekday: 6, muscles: ['Cardio'] },
   { type_id: 'z2', name: 'Running Z2', short: 'Z2', desc: 'Base aeróbica · ritmo conversacional', category: 'cardio_steady', weekday: 7, muscles: ['Cardio'] },
   { type_id: 'natacion', name: 'Swimming', short: 'Swimming', desc: 'Recuperación activa', category: 'cardio_steady', weekday: 1, muscles: ['Cardio'] },
-  { type_id: 'padel', name: 'Pádel', short: 'Pádel', desc: 'Intermitente alta intensidad', category: 'sport', weekday: 5, muscles: ['Cardio'] }
+  { type_id: 'padel', name: 'Pádel', short: 'Pádel', desc: 'Intermitente alta intensidad', category: 'sport', weekday: 5, muscles: ['Cardio'] },
+  { type_id: 'mobility', name: 'Movilidad', short: 'Mobility', desc: 'Movilidad y activación ligera', category: 'mobility', weekday: null, muscles: [] },
+  { type_id: 'rest', name: 'Rest Day', short: 'Rest', desc: 'Descanso completo', category: 'rest', weekday: null, muscles: [] }
 ];
 
 const EXERCISES_BASE = [
@@ -1298,6 +1300,7 @@ function openDay(typeId, dateStr) {
   if (tpl.category === 'strength') renderStrengthDay(typeId, dateStr);
   else if (typeId === 'sprints') renderSprintsDay(dateStr);
   else if (typeId === 'z2') renderZ2Day(dateStr);
+  else if (tpl.category === 'rest') renderRestDay(dateStr);
   else renderSimpleCardio(typeId, dateStr);
 }
 
@@ -1535,6 +1538,21 @@ function renderZ2Day(dateStr) {
       <div class="form-field"><label>Notas (opcional)</label><input type="text" value="${draft.notes ?? ''}" onchange="updateCardio('notes', this.value)"></div>
     </div>
     <button class="btn" onclick="finishWorkout()">Finalizar entrenamiento</button>
+  `;
+}
+
+function renderRestDay(dateStr) {
+  const draft = loadOrCreateDraft('rest', dateStr, () => ({ type_id: 'rest', date: dateStr, notes: '' }));
+  currentDraft = draft;
+  saveDraft('rest', dateStr, draft);
+  document.getElementById('day-content').innerHTML = `
+    <div class="cardio-log-form">
+      <div class="form-field">
+        <label>Notas (opcional)</label>
+        <input type="text" value="${draft.notes ?? ''}" placeholder="ej: caminata, stretching, nada" onchange="updateCardio('notes', this.value)">
+      </div>
+    </div>
+    <button class="btn" onclick="finishWorkout()">Marcar descanso</button>
   `;
 }
 
