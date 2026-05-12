@@ -169,6 +169,15 @@
     .muscle-sub-warnings { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
     .muscle-sub-warn { font-size: 11px; color: #facc15; display: flex; align-items: center; gap: 5px; line-height: 1.3; }
     .muscle-sub-warn svg { flex-shrink: 0; }
+    /* Expandable muscle cards */
+    .muscle-bar-item { list-style: none; }
+    .muscle-bar-item summary { list-style: none; cursor: pointer; }
+    .muscle-bar-item summary::-webkit-details-marker { display: none; }
+    .muscle-chev { color: var(--text-3); transition: transform 0.2s; flex-shrink: 0; }
+    .muscle-bar-item[open] .muscle-chev { transform: rotate(180deg); }
+    .muscle-bar-detail { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .muscle-detail-meta { font-size: 11px; color: var(--text-2); margin-bottom: 7px; }
+    .muscle-detail-ex { font-size: 12px; color: var(--text-3); margin-bottom: 3px; }
 
     /* Insights cards */
     #insights-content { padding-bottom: 32px; }
@@ -1747,53 +1756,103 @@ const MUSCLE_GROUPS = [
   }
 ];
 
+// Mapping de primary muscle → group ID (fallback para ejercicios custom o IDs no reconocidos)
+const MUSCLE_PRIMARY_MAP = {
+  'Pecho': 'pecho', 'Espalda': 'espalda',
+  'Hombros': 'hombros', 'Bíceps': 'brazos',
+  'Tríceps': 'brazos', 'Piernas': 'piernas', 'Glúteos': 'piernas'
+};
+
+function parseRepsRange(str) {
+  if (!str) return 8;
+  const m = String(str).match(/(\d+)-(\d+)/);
+  if (m) return (parseInt(m[1]) + parseInt(m[2])) / 2;
+  const n = parseInt(str);
+  return isNaN(n) ? 8 : n;
+}
+
+function resolveGroupId(exId) {
+  // Primero: busca en la lista hardcodeada
+  for (const g of MUSCLE_GROUPS) {
+    if (!g.isCardio && g.exercises.includes(exId)) return g.id;
+  }
+  // Fallback: usa el primary del ejercicio (capta ejercicios custom)
+  const ex = findExercise(exId);
+  return ex ? (MUSCLE_PRIMARY_MAP[ex.primary] || null) : null;
+}
+
 function computeMuscleWeekIndex() {
   const ws = getWeekStart(new Date());
-  const we = new Date(ws); we.setDate(we.getDate() + 6);
+  const we = new Date(ws); we.setDate(we.getDate() + 6); we.setHours(23,59,59,999);
   const weekWorkouts = loadWorkouts().filter(w => {
     const d = new Date(w.date + 'T12:00:00');
     return d >= ws && d <= we;
   });
 
-  // Fracción de semana transcurrida (0=lunes AM, 1=domingo PM)
-  const todayJs = new Date().getDay(); // 0=dom,1=lun...6=sab
-  const dayIdx = todayJs === 0 ? 6 : todayJs - 1; // 0=lun, 6=dom
+  const todayJs = new Date().getDay();
+  const dayIdx = todayJs === 0 ? 6 : todayJs - 1;
   const weekElapsed = dayIdx / 6;
+
+  // Acumular datos por grupo
+  const accum = {};
+  MUSCLE_GROUPS.forEach(g => {
+    accum[g.id] = {
+      totalSets: 0, totalReps: 0, prescribedReps: [],
+      totalRPE: 0, rpeCount: 0,
+      subSetCounts: g.subGroups.map(() => 0),
+      exercisesLogged: []
+    };
+  });
+
+  weekWorkouts.forEach(w => {
+    if (!w.sets) return;
+    const dayExs = DAY_EXERCISES[w.type_id] || [];
+    Object.entries(w.sets).forEach(([exId, sets]) => {
+      const groupId = resolveGroupId(exId);
+      if (!groupId) return;
+      const done = (sets || []).filter(s => s.reps && +s.reps > 0);
+      if (!done.length) return;
+      const a = accum[groupId];
+      a.totalSets += done.length;
+      a.totalReps += done.reduce((s, r) => s + (+r.reps || 0), 0);
+      done.forEach(s => { if (s.rpe) { a.totalRPE += +s.rpe; a.rpeCount++; } });
+      // Reps prescritas para este ejercicio en este día
+      const meta = dayExs.find(e => e.id === exId);
+      const prescribed = parseRepsRange(meta ? meta.reps : '8');
+      done.forEach(() => a.prescribedReps.push(prescribed));
+      // Sub-grupos
+      const group = MUSCLE_GROUPS.find(g => g.id === groupId);
+      if (group) group.subGroups.forEach((sg, i) => { if (sg.exercises.includes(exId)) a.subSetCounts[i] += done.length; });
+      // Log para el detalle
+      const ex = findExercise(exId);
+      const avgReps = Math.round(done.reduce((s, r) => s + +r.reps, 0) / done.length * 10) / 10;
+      const avgRpe = a.rpeCount > 0 ? Math.round(done.filter(s => s.rpe).reduce((s, r) => s + +r.rpe, 0) / done.filter(s => s.rpe).length * 10) / 10 : null;
+      const existing = a.exercisesLogged.find(e => e.id === exId);
+      if (existing) { existing.sets += done.length; }
+      else a.exercisesLogged.push({ id: exId, name: ex ? ex.name : exId, sets: done.length, avgReps, avgRpe });
+    });
+  });
 
   return MUSCLE_GROUPS.map(group => {
     if (group.isCardio) {
       const sessions = weekWorkouts.filter(w => group.exercises.includes(w.type_id)).length;
       const score = Math.min(1, sessions);
-      let status;
-      if (score >= 1) status = 'green';
-      else if (weekElapsed >= 0.7) status = 'red';
-      else if (weekElapsed >= 0.5) status = 'yellow';
-      else status = 'neutral';
-      return { ...group, score, pct: Math.round(score * 100), status, warnings: [] };
+      let status = score >= 1 ? 'green' : weekElapsed >= 0.7 ? 'red' : weekElapsed >= 0.5 ? 'yellow' : 'neutral';
+      return { ...group, score, pct: Math.round(score * 100), status, warnings: [], a: { totalSets: sessions, exercisesLogged: [] } };
     }
 
-    let totalSets = 0, totalReps = 0, totalRPE = 0, rpeCount = 0;
-    const subSetCounts = group.subGroups.map(() => 0);
-
-    weekWorkouts.forEach(w => {
-      if (!w.sets) return;
-      Object.entries(w.sets).forEach(([exId, sets]) => {
-        if (!group.exercises.includes(exId)) return;
-        const done = (sets || []).filter(s => s.reps && +s.reps > 0);
-        totalSets += done.length;
-        totalReps += done.reduce((a, s) => a + (+s.reps || 0), 0);
-        done.forEach(s => { if (s.rpe) { totalRPE += +s.rpe; rpeCount++; } });
-        group.subGroups.forEach((sg, i) => {
-          if (sg.exercises.includes(exId)) subSetCounts[i] += done.length;
-        });
-      });
-    });
+    const a = accum[group.id];
+    const { totalSets, totalReps, prescribedReps, totalRPE, rpeCount } = a;
 
     const sets_score = Math.min(1, totalSets / group.targetSets);
+    const avgRepsDone = totalSets > 0 ? totalReps / totalSets : 0;
+    const avgRepsPrescribed = prescribedReps.length > 0 ? prescribedReps.reduce((s,v) => s+v, 0) / prescribedReps.length : 8;
+    const reps_score = totalSets > 0 ? Math.min(1, avgRepsDone / avgRepsPrescribed) : 0;
     const effort_score = rpeCount > 0 ? Math.min(1, (totalRPE / rpeCount) / 4) : null;
+
     const score = effort_score !== null
-      ? 0.7 * sets_score + 0.3 * effort_score
-      : sets_score;
+      ? (sets_score + reps_score + effort_score) / 3
+      : (sets_score + reps_score) / 2;
     const pct = Math.round(score * 100);
 
     let status;
@@ -1802,17 +1861,15 @@ function computeMuscleWeekIndex() {
     else if (weekElapsed >= 0.3 && pct < 70) status = 'yellow';
     else status = 'neutral';
 
-    // Warnings de sub-grupos (solo desde mitad de semana)
     const warnings = [];
     if (weekElapsed >= 0.5) {
       const targetPerSub = group.targetSets / Math.max(1, group.subGroups.length);
       group.subGroups.forEach((sg, i) => {
-        const subScore = subSetCounts[i] / targetPerSub;
-        if (subScore < 0.5) warnings.push(sg.name);
+        if (a.subSetCounts[i] / targetPerSub < 0.5) warnings.push(sg.name);
       });
     }
 
-    return { ...group, score, pct, status, warnings };
+    return { ...group, score, pct, status, warnings, a, avgRepsDone: Math.round(avgRepsDone * 10) / 10, avgRPE: rpeCount > 0 ? Math.round(totalRPE / rpeCount * 10) / 10 : null };
   });
 }
 
@@ -1822,36 +1879,39 @@ function renderMuscleWeekDashboard() {
   const data = computeMuscleWeekIndex();
 
   const warnIcon = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#facc15" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+  const chevIcon = `<svg class="muscle-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>`;
 
   el.innerHTML = `
     <div class="section-title" style="margin: 20px 0 12px;">Progreso semanal</div>
     <div class="muscle-bars">
       ${data.map(g => {
-        const barColor = g.status === 'green' ? 'var(--success)'
-          : g.status === 'yellow' ? '#facc15'
-          : g.status === 'red' ? 'var(--danger)'
-          : 'var(--text-3)';
-        const statusLabel = g.status === 'green' ? 'On track'
-          : g.status === 'yellow' ? 'In progress'
-          : g.status === 'red' ? 'Atrasado'
-          : 'Iniciando';
-        const warningHTML = g.warnings.length
-          ? `<div class="muscle-sub-warnings">${g.warnings.map(w =>
-              `<span class="muscle-sub-warn">${warnIcon} ${w} sin atención</span>`
-            ).join('')}</div>`
-          : '';
+        const barColor = g.status === 'green' ? 'var(--success)' : g.status === 'yellow' ? '#facc15' : g.status === 'red' ? 'var(--danger)' : 'var(--text-3)';
+        const statusLabel = g.status === 'green' ? 'On track' : g.status === 'yellow' ? 'In progress' : g.status === 'red' ? 'Atrasado' : 'Iniciando';
+        const warningHTML = g.warnings.length ? `<div class="muscle-sub-warnings">${g.warnings.map(w => `<span class="muscle-sub-warn">${warnIcon} ${w} sin atención</span>`).join('')}</div>` : '';
+        const a = g.a || {};
+        const exList = (a.exercisesLogged || []).map(e =>
+          `<div class="muscle-detail-ex">${e.name} — ${e.sets} set${e.sets !== 1 ? 's' : ''} · ${e.avgReps} reps avg${e.avgRpe ? ' · RPE ' + e.avgRpe : ''}</div>`
+        ).join('');
+        const metaLine = g.isCardio
+          ? `${a.totalSets || 0} sesión${a.totalSets !== 1 ? 'es' : ''} · Objetivo: 1/sem`
+          : `${a.totalSets || 0}/${g.targetSets} sets · Objetivo: ${g.targetSets} sets/sem${g.avgRepsDone > 0 ? ' · ' + g.avgRepsDone + ' reps avg' : ''}${g.avgRPE ? ' · RPE ' + g.avgRPE : ''}`;
         return `
-          <div class="muscle-bar-item">
-            <div class="muscle-bar-header">
-              <span class="muscle-bar-name">${g.name}</span>
-              <span class="muscle-bar-pct">${g.pct}%</span>
-              <span class="muscle-bar-status ${g.status}">${statusLabel}</span>
+          <details class="muscle-bar-item">
+            <summary>
+              <div class="muscle-bar-header">
+                <span class="muscle-bar-name">${g.name}</span>
+                <span class="muscle-bar-pct">${g.pct}%</span>
+                <span class="muscle-bar-status ${g.status}">${statusLabel}</span>
+                ${chevIcon}
+              </div>
+              <div class="muscle-bar-track"><div class="muscle-bar-fill" style="width:${g.pct}%;background:${barColor};"></div></div>
+              ${warningHTML}
+            </summary>
+            <div class="muscle-bar-detail">
+              <div class="muscle-detail-meta">${metaLine}</div>
+              ${exList || '<div class="muscle-detail-ex" style="color:var(--text-3);font-style:italic;">Sin ejercicios finalizados esta semana</div>'}
             </div>
-            <div class="muscle-bar-track">
-              <div class="muscle-bar-fill" style="width:${g.pct}%;background:${barColor};"></div>
-            </div>
-            ${warningHTML}
-          </div>`;
+          </details>`;
       }).join('')}
     </div>`;
 }
