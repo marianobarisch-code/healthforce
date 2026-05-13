@@ -1845,6 +1845,7 @@ function computeMuscleWeekIndex() {
     const { totalSets, totalReps, prescribedReps, totalRPE, rpeCount } = a;
 
     const sets_score = Math.min(1, totalSets / group.targetSets);
+    const avgRepsDone = totalSets > 0 ? totalReps / totalSets : 0;
     const avgRepsPrescribed = prescribedReps.length > 0 ? prescribedReps.reduce((s,v) => s+v, 0) / prescribedReps.length : 8;
     const weeklyRepsTarget = group.targetSets * avgRepsPrescribed;
     const reps_score = weeklyRepsTarget > 0 ? Math.min(1, totalReps / weeklyRepsTarget) : 0;
