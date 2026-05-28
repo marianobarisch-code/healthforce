@@ -777,32 +777,44 @@ function suggestNextSession(exId, prescribedReps, currentDateStr) {
   if (!sets.length) return null;
 
   const weights = sets.map(s => +s.weight);
-  const lastWeight = weights[0]; // primer set como referencia
+  const lastWeight = weights[0];
   const target = parseRepsRange(prescribedReps);
+
+  // Completed: all sets hit at least the target reps
   const completed = sets.every(s => +s.reps >= target.min);
+  // Nearly completed: most sets hit target (tolerate 1 set short by 1-2 reps)
+  const setsHit = sets.filter(s => +s.reps >= target.min).length;
+  const nearlyCompleted = setsHit >= sets.length - 1 && sets.every(s => +s.reps >= target.min - 2);
+
   const rpes = sets.filter(s => s.rpe !== '' && s.rpe != null).map(s => +s.rpe);
   const avgRpe = rpes.length ? rpes.reduce((a,b)=>a+b,0) / rpes.length : null;
+  const ago = daysAgo(last.date);
+  const refNote = `(hace ${ago}d)`;
 
   let weight = lastWeight;
   let action = 'maintain';
-  let note = 'Mantener — repetir misma carga';
+  let note = `Mantener ${refNote}`;
 
-  if (completed && avgRpe !== null) {
+  if ((completed || nearlyCompleted) && avgRpe !== null) {
     if (avgRpe <= 3) {
+      // RPE 1-3: comfortable — increase weight
       weight = getNextWeight(lastWeight, exId);
       action = 'up';
-      note = `Subir +${getIncrement(exId)} kg — última cómoda (RPE ${avgRpe.toFixed(1)})`;
-    } else if (avgRpe == 4) {
+      note = `Subir +${getIncrement(exId)} kg — RPE ${avgRpe.toFixed(1)} ${refNote}`;
+    } else if (avgRpe <= 4) {
+      // RPE 3.1-4: good effort zone — maintain, push reps
       action = 'maintain';
-      note = `Mantener — apuntar a más reps (RPE ${avgRpe.toFixed(1)})`;
+      note = `Mantener — buen esfuerzo, apuntar más reps · RPE ${avgRpe.toFixed(1)} ${refNote}`;
     } else {
+      // RPE 4.1-5: heavy — maintain, watch form
       action = 'maintain';
-      note = `Mantener — carga alta (RPE ${avgRpe.toFixed(1)})`;
+      note = `Mantener — carga alta, cuidar técnica · RPE ${avgRpe.toFixed(1)} ${refNote}`;
     }
-  } else if (completed && avgRpe === null) {
-    note = 'Mantener — completaste pero sin RPE (cargá RPE para sugerencias mejores)';
-  } else if (!completed) {
-    note = 'Mantener — no completaste, repetir';
+  } else if ((completed || nearlyCompleted) && avgRpe === null) {
+    note = `Mantener — sin RPE, cargá RPE para mejores sugerencias ${refNote}`;
+  } else if (!completed && !nearlyCompleted) {
+    const repsStr = sets.map(s => s.reps).join(', ');
+    note = `Mantener — reps: ${repsStr} (objetivo: ${target.min}) ${refNote}`;
   }
 
   return { weight, action, note, last_weight: lastWeight, last_avg_rpe: avgRpe, last_date: last.date, last_sets: sets };
@@ -1486,17 +1498,26 @@ function renderHome() {
     let isRestDay = false;
 
     if (hasDone) {
-      // Show what was actually done
-      const names = day.done.map(d => d.name);
+      // If rest is among done items, only show rest (rest overrides everything)
+      const hasRestDone = day.done.some(d => {
+        const t = DAY_TEMPLATES.find(tpl => tpl.type_id === d.type_id);
+        return t && (t.category === 'rest' || t.category === 'mobility');
+      });
+      const displayDone = hasRestDone ? day.done.filter(d => {
+        const t = DAY_TEMPLATES.find(tpl => tpl.type_id === d.type_id);
+        return t && (t.category === 'rest' || t.category === 'mobility');
+      }) : day.done;
+
+      const names = displayDone.map(d => d.name);
       nameText = names.join(' + ');
-      const cats = [...new Set(day.done.map(d => tplCategory(d.type_id)))].join(' + ');
+      const cats = [...new Set(displayDone.map(d => tplCategory(d.type_id)))].join(' + ');
       subText = cats;
       // Tics for each completed activity
-      day.done.forEach(() => {
+      displayDone.forEach(() => {
         checksHTML += `<div class="week-day-card-check"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>`;
       });
-      // If today and still has suggestions pending
-      if (day.isToday && suggestions.length > 0) {
+      // If today and still has suggestions pending (never if rest logged)
+      if (day.isToday && suggestions.length > 0 && !hasRestDone) {
         nameText += ' + ' + suggestions.map(id => tplName(id)).join(' + ');
         subText += ' · falta ' + suggestions.map(id => tplName(id)).join(', ');
       }
@@ -1929,9 +1950,27 @@ async function finishWorkout() {
     currentDraft.duration = (min + sec / 60).toFixed(2);
   }
   const workouts = loadWorkouts();
+  const tpl = DAY_TEMPLATES.find(t => t.type_id === currentDraft.type_id);
+  const isRest = tpl && (tpl.category === 'rest' || tpl.category === 'mobility');
+
+  // If saving a rest day, clear ALL workouts for this date (rest overrides everything)
   const existing = workouts.find(w => w.type_id === currentDraft.type_id && w.date === currentDraft.date);
   if (existing && existing.server_id) currentDraft.server_id = existing.server_id;
-  const filtered = workouts.filter(w => !(w.type_id === currentDraft.type_id && w.date === currentDraft.date));
+
+  let filtered;
+  if (isRest) {
+    // Delete all other workouts for this date from server too
+    const othersOnDate = workouts.filter(w => w.date === currentDraft.date && w.type_id !== currentDraft.type_id);
+    othersOnDate.forEach(async (w) => {
+      if (w.server_id && sb) {
+        try { await sb.from('workouts').delete().eq('id', w.server_id); } catch(e) { console.warn('cleanup server:', e); }
+      }
+    });
+    filtered = workouts.filter(w => w.date !== currentDraft.date);
+  } else {
+    filtered = workouts.filter(w => !(w.type_id === currentDraft.type_id && w.date === currentDraft.date));
+  }
+
   const completed = { ...currentDraft, completed_at: new Date().toISOString() };
   filtered.push(completed);
   saveWorkouts(filtered);
