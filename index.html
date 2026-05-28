@@ -100,6 +100,31 @@
     .log-training-hero-label { font-size: 22px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.1; }
     .log-training-hero-sub { font-size: 13px; font-weight: 600; opacity: 0.7; margin-top: 2px; }
 
+    /* Week section label */
+    .week-section-label { font-size: 13px; font-weight: 700; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+
+    /* Week day cards */
+    .week-day-cards { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+    .week-day-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: transform 0.1s, border-color 0.15s; position: relative; }
+    .week-day-card:active { transform: scale(0.98); }
+    .week-day-card.completed { border-color: var(--success); }
+    .week-day-card.is-today { border-color: var(--accent); }
+    .week-day-card.future { opacity: 0.5; }
+    .week-day-card.rest-day { opacity: 0.45; }
+    .week-day-card-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+    .week-day-card-abbr { font-size: 12px; font-weight: 800; color: var(--text-3); width: 30px; flex-shrink: 0; text-transform: uppercase; }
+    .week-day-card.is-today .week-day-card-abbr { color: var(--accent); }
+    .week-day-card-info { flex: 1; min-width: 0; }
+    .week-day-card-name { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .week-day-card-sub { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+    .week-day-card-sub.suggestion { color: var(--accent); opacity: 0.8; }
+    .week-day-card-checks { display: flex; gap: 4px; flex-shrink: 0; }
+    .week-day-card-check { width: 24px; height: 24px; border-radius: 50%; background: var(--success); display: flex; align-items: center; justify-content: center; }
+    .week-day-card-check svg { width: 12px; height: 12px; }
+    .week-day-card-arrow { width: 24px; height: 24px; border-radius: 50%; background: var(--surface-2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .week-day-card-arrow svg { width: 12px; height: 12px; }
+    .today-badge { position: absolute; top: -8px; left: 14px; background: var(--accent); color: #000; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 100px; text-transform: uppercase; letter-spacing: 0.5px; }
+
     /* Today routines cards */
     .today-routines { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
     .routine-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: transform 0.1s, border-color 0.15s; position: relative; }
@@ -340,36 +365,20 @@
     </div>
   </div>
 
-  <div class="week-strip">
-    <div class="week-strip-header">
-      <span class="week-label" id="week-label">Esta semana</span>
-      <button class="week-today-btn" id="week-today-btn" onclick="goToCurrentWeek()" style="display:none">Hoy</button>
-    </div>
-    <div class="week-cal" id="week-cal"></div>
-    <div class="swipe-hint" id="swipe-hint">← desliza →</div>
-  </div>
-
   <button class="log-training-hero" onclick="showLogTrainingModal()">
     <div class="log-training-hero-icon">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polygon points="5 3 19 12 5 21 5 3"/></svg>
     </div>
     <div class="log-training-hero-text">
-      <div class="log-training-hero-label">Log training</div>
+      <div class="log-training-hero-label">Log Training</div>
       <div class="log-training-hero-sub" id="log-training-hero-sub">Tocá para cargar un entrenamiento</div>
     </div>
   </button>
 
+  <div class="week-section-label" id="week-section-label">Esta semana</div>
+  <div class="week-day-cards" id="week-day-cards"></div>
+
   <div id="muscle-week-dashboard"></div>
-
-  <div class="today-routines" id="today-routines"></div>
-
-  <details class="split-toggle" id="split-toggle">
-    <summary>
-      <span>Tu split</span>
-      <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
-    </summary>
-    <div class="day-grid" id="day-grid"></div>
-  </details>
 </section>
 
 <section class="screen" id="screen-day">
@@ -1238,6 +1247,164 @@ function attachWeekSwipe() {
   });
 }
 
+// ── Smart weekly suggestion engine ──
+const STRENGTH_TYPES = new Set(['day1','day2','day3','day4']);
+const UPPER_TYPES = new Set(['day1','day2','day4']);
+const CATEGORY_LABELS = { strength: 'Gym', cardio_intervals: 'Cardio', cardio_steady: 'Cardio', sport: 'Deporte', mobility: 'Movilidad', rest: 'Descanso' };
+
+// Planned activities per weekday (1=Mon..7=Sun) from DAY_TEMPLATES
+function plannedForWeekday(wd) { return DAY_TEMPLATES.filter(t => t.weekday === wd); }
+
+// Get what was actually done on a specific date
+function actualForDate(dateStr) {
+  const wks = workoutsForDate(dateStr);
+  return wks.map(w => {
+    const tpl = DAY_TEMPLATES.find(t => t.type_id === w.type_id);
+    return { type_id: w.type_id, name: tpl ? tpl.name : w.type_id, category: tpl ? tpl.category : 'unknown', tpl };
+  });
+}
+
+// Build week plan: for each day, what was done (past/today) + what's suggested (today pending / future)
+function buildWeekPlan() {
+  const today = new Date();
+  const todayWd = getWeekday(today);
+  const todayDate = todayStr();
+  const ws = getWeekStart(today);
+  const allWorkouts = loadWorkouts();
+
+  // Collect what was done each day this week
+  const weekDays = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(ws);
+    d.setDate(d.getDate() + i);
+    const dateStr = dateToISO(d);
+    const wd = i + 1; // 1=Mon
+    const planned = plannedForWeekday(wd);
+    const done = actualForDate(dateStr);
+    const isPast = dateStr < todayDate;
+    const isToday = dateStr === todayDate;
+    const isFuture = dateStr > todayDate;
+    weekDays.push({ wd, dateStr, planned, done, isPast, isToday, isFuture });
+  }
+
+  // Collect all type_ids completed this week
+  const doneTypeIds = new Set();
+  weekDays.forEach(day => day.done.forEach(d => doneTypeIds.add(d.type_id)));
+
+  // Pending activities: planned but not yet done this week
+  const allPlannedTypeIds = [];
+  DAY_TEMPLATES.forEach(t => {
+    if (t.weekday && t.category !== 'rest' && t.category !== 'mobility') allPlannedTypeIds.push(t.type_id);
+  });
+  const pendingTypeIds = allPlannedTypeIds.filter(id => !doneTypeIds.has(id));
+
+  // What was done yesterday (for recovery logic)
+  function doneOnDay(dayIdx) {
+    if (dayIdx < 0 || dayIdx >= 7) return [];
+    return weekDays[dayIdx].done;
+  }
+
+  // Check if a type_id would conflict with recovery from previous day
+  function hasRecoveryConflict(typeId, dayIdx) {
+    const tpl = DAY_TEMPLATES.find(t => t.type_id === typeId);
+    if (!tpl) return false;
+    const prevDone = doneOnDay(dayIdx - 1);
+    const prevPrevDone = doneOnDay(dayIdx - 2);
+    // Upper body needs 48h separation from other upper
+    if (UPPER_TYPES.has(typeId)) {
+      if (prevDone.some(d => UPPER_TYPES.has(d.type_id))) return true;
+    }
+    // Legs need at least 1 day from legs
+    if (typeId === 'day3') {
+      if (prevDone.some(d => d.type_id === 'day3')) return true;
+    }
+    return false;
+  }
+
+  // Score a type_id for a given day: lower = better fit
+  function scoreFit(typeId, dayIdx) {
+    const tpl = DAY_TEMPLATES.find(t => t.type_id === typeId);
+    if (!tpl) return 999;
+    let score = 0;
+    // Prefer original day assignment
+    if (tpl.weekday === dayIdx + 1) score -= 10;
+    // Penalize recovery conflict
+    if (hasRecoveryConflict(typeId, dayIdx)) score += 50;
+    // Prefer strength earlier in the week (when energy is higher)
+    if (STRENGTH_TYPES.has(typeId)) score -= (7 - dayIdx);
+    // Prefer cardio on weekends
+    if ((tpl.category === 'cardio_intervals' || tpl.category === 'cardio_steady') && dayIdx >= 5) score -= 3;
+    return score;
+  }
+
+  // Assign suggestions to future/today-pending days
+  const remaining = [...pendingTypeIds];
+  const futureDays = weekDays.filter(d => d.isFuture || (d.isToday && d.done.length === 0));
+  // Also check today partial: if today has some done but not all planned
+  const todayDay = weekDays.find(d => d.isToday);
+
+  // For today: suggest what's planned but not yet done
+  if (todayDay) {
+    const todayDoneIds = new Set(todayDay.done.map(d => d.type_id));
+    const todayPending = todayDay.planned.filter(p => !todayDoneIds.has(p.type_id));
+    todayDay.suggestions = todayPending.map(p => p.type_id);
+    // Remove today's pending from remaining pool
+    todayDay.suggestions.forEach(id => {
+      const idx = remaining.indexOf(id);
+      if (idx >= 0) remaining.splice(idx, 1);
+    });
+  }
+
+  // For future days: assign best-fit from remaining pool
+  const futureDaysOnly = weekDays.filter(d => d.isFuture);
+  futureDaysOnly.forEach(day => {
+    day.suggestions = [];
+    // First try to assign what was originally planned for this day
+    const originalPlanned = day.planned.filter(p => remaining.includes(p.type_id));
+    originalPlanned.forEach(p => {
+      if (!hasRecoveryConflict(p.type_id, day.wd - 1)) {
+        day.suggestions.push(p.type_id);
+        const idx = remaining.indexOf(p.type_id);
+        if (idx >= 0) remaining.splice(idx, 1);
+      }
+    });
+  });
+
+  // Second pass: distribute remaining activities to best available day
+  const stillRemaining = [...remaining];
+  stillRemaining.forEach(typeId => {
+    let bestDay = null, bestScore = 999;
+    futureDaysOnly.forEach(day => {
+      // Don't overload: max 2 suggestions per day
+      if (day.suggestions.length >= 2) return;
+      const s = scoreFit(typeId, day.wd - 1);
+      if (s < bestScore) { bestScore = s; bestDay = day; }
+    });
+    if (bestDay) {
+      bestDay.suggestions.push(typeId);
+      const idx = remaining.indexOf(typeId);
+      if (idx >= 0) remaining.splice(idx, 1);
+    }
+  });
+
+  // Mark rest days: future days with no suggestions and nothing planned
+  futureDaysOnly.forEach(day => {
+    if (day.suggestions.length === 0) day.isRest = true;
+  });
+
+  return weekDays;
+}
+
+function tplName(typeId) {
+  const t = DAY_TEMPLATES.find(tpl => tpl.type_id === typeId);
+  return t ? t.name : typeId;
+}
+
+function tplCategory(typeId) {
+  const t = DAY_TEMPLATES.find(tpl => tpl.type_id === typeId);
+  return t ? (CATEGORY_LABELS[t.category] || t.category) : '';
+}
+
 function renderHome() {
   const today = new Date();
   const hour = today.getHours();
@@ -1246,51 +1413,122 @@ function renderHome() {
   if (hour >= 19 || hour < 6) greeting = 'Buenas noches, Mariano';
   document.getElementById('home-greeting').textContent = greeting;
 
-  renderWeekCal();
-  attachWeekSwipe();
   renderMuscleWeekDashboard();
 
-  // Routines de hoy
-  const todayWeekday = getWeekday(today);
-  const todayTpls = templatesForWeekday(todayWeekday);
-  const dayLongName = DAY_LONG_NAMES_ES[todayWeekday - 1];
+  // Build smart week plan
+  const weekPlan = buildWeekPlan();
   const todayDate = todayStr();
-  const routinesEl = document.getElementById('today-routines');
-  routinesEl.innerHTML = '';
 
+  // Update hero sub-label
+  const todayDay = weekPlan.find(d => d.isToday);
   const subEl = document.getElementById('log-training-hero-sub');
-  if (todayTpls.length) {
-    subEl.textContent = `${dayLongName} · ${todayTpls.length} entreno${todayTpls.length > 1 ? 's' : ''}`;
-    todayTpls.forEach(tpl => {
-      const isCompleted = !!workoutForTypeAndDate(tpl.type_id, todayDate);
-      const card = document.createElement('div');
-      card.className = 'routine-card' + (isCompleted ? ' completed' : '');
-      card.innerHTML = `
-        <div class="routine-card-text">
-          <div class="routine-card-name">${tpl.name}</div>
-          <div class="routine-card-day">${dayLongName}</div>
-        </div>
-        <div class="routine-card-check">
-          ${isCompleted
-            ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>'
-            : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="9 18 15 12 9 6"/></svg>'}
-        </div>
-      `;
-      card.onclick = () => openDay(tpl.type_id, todayDate);
-      routinesEl.appendChild(card);
-    });
-  } else {
-    subEl.textContent = `${dayLongName} · día libre`;
-    const card = document.createElement('div');
-    card.className = 'routine-card';
-    card.innerHTML = `
-      <div class="routine-card-text">
-        <div class="routine-card-name">Día libre</div>
-        <div class="routine-card-day">${dayLongName} · descanso o movilidad ligera</div>
-      </div>
-    `;
-    routinesEl.appendChild(card);
+  if (todayDay) {
+    const dayLongName = DAY_LONG_NAMES_ES[todayDay.wd - 1];
+    const todayDoneCount = todayDay.done.length;
+    const todaySuggCount = (todayDay.suggestions || []).length;
+    if (todayDoneCount > 0 && todaySuggCount === 0) {
+      subEl.textContent = `${dayLongName} · todo listo ✓`;
+    } else if (todaySuggCount > 0) {
+      subEl.textContent = `${dayLongName} · ${todaySuggCount} pendiente${todaySuggCount > 1 ? 's' : ''}`;
+    } else {
+      subEl.textContent = `${dayLongName} · día libre`;
+    }
   }
+
+  // Render week day cards
+  const cardsEl = document.getElementById('week-day-cards');
+  cardsEl.innerHTML = '';
+
+  weekPlan.forEach(day => {
+    const card = document.createElement('div');
+    const hasDone = day.done.length > 0;
+    const suggestions = day.suggestions || [];
+    const isRest = day.isRest || (day.isPast && !hasDone && day.planned.length === 0);
+    const isRestExplicit = !hasDone && suggestions.length === 0;
+
+    let classes = 'week-day-card';
+    if (hasDone && (day.isPast || (day.isToday && suggestions.length === 0))) classes += ' completed';
+    if (day.isToday) classes += ' is-today';
+    if (day.isFuture) classes += ' future';
+    if (isRest && !day.isToday) classes += ' rest-day';
+    card.className = classes;
+
+    // Content
+    let nameText = '';
+    let subText = '';
+    let checksHTML = '';
+    let isRestDay = false;
+
+    if (hasDone) {
+      // Show what was actually done
+      const names = day.done.map(d => d.name);
+      nameText = names.join(' + ');
+      const cats = [...new Set(day.done.map(d => tplCategory(d.type_id)))].join(' + ');
+      subText = cats;
+      // Tics for each completed activity
+      day.done.forEach(() => {
+        checksHTML += `<div class="week-day-card-check"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>`;
+      });
+      // If today and still has suggestions pending
+      if (day.isToday && suggestions.length > 0) {
+        nameText += ' + ' + suggestions.map(id => tplName(id)).join(' + ');
+        subText += ' · falta ' + suggestions.map(id => tplName(id)).join(', ');
+      }
+    } else if (suggestions.length > 0) {
+      // Show suggestion for today or future
+      nameText = suggestions.map(id => tplName(id)).join(' + ');
+      const cats = [...new Set(suggestions.map(id => tplCategory(id)))].join(' + ');
+      if (day.isToday) {
+        subText = cats + ' · pendiente';
+      } else {
+        subText = 'Sugerido · ' + cats;
+      }
+      checksHTML = `<div class="week-day-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="9 18 15 12 9 6"/></svg></div>`;
+    } else if (day.isPast && !hasDone) {
+      // Past day with nothing done
+      if (day.planned.length > 0) {
+        nameText = 'Sin actividad';
+        subText = 'Planificado: ' + day.planned.map(p => p.name).join(', ');
+      } else {
+        nameText = 'Descanso';
+        isRestDay = true;
+      }
+    } else {
+      // Future rest day
+      nameText = 'Descanso';
+      isRestDay = true;
+    }
+
+    const abbrNames = ['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'];
+    let innerHTML = '';
+    if (day.isToday) innerHTML += '<div class="today-badge">Hoy</div>';
+    innerHTML += `
+      <div class="week-day-card-left">
+        <div class="week-day-card-abbr">${abbrNames[day.wd - 1]}</div>
+        <div class="week-day-card-info">
+          <div class="week-day-card-name"${isRestDay ? ' style="color:var(--text-3)"' : ''}>${nameText}</div>
+          ${subText ? `<div class="week-day-card-sub${day.isFuture && suggestions.length > 0 ? ' suggestion' : ''}">${subText}</div>` : ''}
+        </div>
+      </div>
+      <div class="week-day-card-checks">${checksHTML || (isRestDay ? '<span style="color:var(--text-3);font-size:13px">—</span>' : '')}</div>
+    `;
+    card.innerHTML = innerHTML;
+
+    // Click handler
+    card.onclick = () => {
+      if (hasDone) {
+        openDay(day.done[0].type_id, day.dateStr);
+      } else if (suggestions.length > 0) {
+        openDay(suggestions[0], day.dateStr);
+      } else if (day.planned.length > 0) {
+        openDay(day.planned[0].type_id, day.dateStr);
+      } else {
+        openAssignDayModal(day.dateStr);
+      }
+    };
+
+    cardsEl.appendChild(card);
+  });
 
   // Progreso semanal (visible en Analytics)
   const weekWorkouts = workoutsThisWeek();
@@ -1299,26 +1537,6 @@ function renderHome() {
   const wpFill = document.getElementById('week-progress-fill');
   if (wpText) wpText.textContent = `${daysWithSession} / ${WEEK_TARGET}`;
   if (wpFill) wpFill.style.width = Math.min(100, (daysWithSession / WEEK_TARGET) * 100) + '%';
-
-  // Tu split (collapsible) — renderizado bajo demanda en la semana actual
-  const ws = getWeekStart(today);
-  const gridEl = document.getElementById('day-grid');
-  gridEl.innerHTML = '';
-  DAY_TEMPLATES.forEach(tpl => {
-    const wsDate = new Date(ws);
-    wsDate.setDate(wsDate.getDate() + (tpl.weekday - 1));
-    const dateStr = dateToISO(wsDate);
-    const isCompleted = !!workoutForTypeAndDate(tpl.type_id, dateStr);
-    const card = document.createElement('div');
-    card.className = 'day-card' + (isCompleted ? ' completed' : '');
-    card.innerHTML = `
-      <div class="day-label">${dayShortName(tpl.weekday)} · ${tpl.short}</div>
-      <div class="day-name">${tpl.name}</div>
-      <div class="muscles">${tpl.muscles.map(m => `<span class="badge">${m}</span>`).join('')}</div>
-    `;
-    card.onclick = () => openDay(tpl.type_id, dateStr);
-    gridEl.appendChild(card);
-  });
 }
 
 function openToday() {
