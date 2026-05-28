@@ -1358,16 +1358,28 @@ function buildWeekPlan() {
   const todayDay = weekDays.find(d => d.isToday);
 
   // For today: suggest what's planned but not yet done
+  // UNLESS a rest/mobility day was logged — that's an explicit choice to not train
   if (todayDay) {
     const todayDoneIds = new Set(todayDay.done.map(d => d.type_id));
-    const todayPending = todayDay.planned.filter(p => !todayDoneIds.has(p.type_id));
-    todayDay.suggestions = todayPending.map(p => p.type_id);
-    // Remove today's pending from remaining pool
+    const restLogged = todayDay.done.some(d => {
+      const t = DAY_TEMPLATES.find(tpl => tpl.type_id === d.type_id);
+      return t && (t.category === 'rest' || t.category === 'mobility');
+    });
+    if (restLogged) {
+      todayDay.suggestions = [];
+    } else {
+      const todayPending = todayDay.planned.filter(p => !todayDoneIds.has(p.type_id));
+      todayDay.suggestions = todayPending.map(p => p.type_id);
+    }
+    // Remove today's suggestions from remaining pool
     todayDay.suggestions.forEach(id => {
       const idx = remaining.indexOf(id);
       if (idx >= 0) remaining.splice(idx, 1);
     });
   }
+
+  // Past days that had rest logged: don't count their planned activities as "skipped"
+  // — they'll remain in the remaining pool for redistribution to future days
 
   // For future days: assign best-fit from remaining pool
   const futureDaysOnly = weekDays.filter(d => d.isFuture);
@@ -1831,8 +1843,8 @@ function renderZ2Day(dateStr) {
       </div>
       <div class="form-field"><label>Distancia (km)</label><input type="number" step="0.01" value="${draft.distance ?? ''}" placeholder="ej: 5.2" onchange="updateCardio('distance', this.value); computeZ2Pace()"></div>
       <div class="form-field">
-        <label>Ritmo promedio (min/km)</label>
-        <input type="number" step="0.01" id="z2-pace" value="${draft.avg_pace ?? ''}" placeholder="auto si hay distancia" onchange="updateCardio('avg_pace', this.value)">
+        <label>Ritmo promedio</label>
+        <div id="z2-pace-display" style="background:var(--surface-2);border-radius:8px;padding:10px 12px;font-size:15px;font-weight:600;color:var(--text);min-height:40px">${draft.avg_pace ? formatPaceDisplay(draft.avg_pace) : '<span style="color:var(--text-3);font-weight:400">Se calcula con distancia + duración</span>'}</div>
       </div>
       <div class="form-field"><label>Esfuerzo percibido (RPE 1-5)</label><input type="number" step="0.5" min="1" max="5" value="${draft.rpe ?? ''}" placeholder="ej: 3.5" onchange="updateCardio('rpe', this.value)"></div>
       <div class="form-field"><label>Notas (opcional)</label><input type="text" value="${draft.notes ?? ''}" onchange="updateCardio('notes', this.value)"></div>
@@ -1842,18 +1854,30 @@ function renderZ2Day(dateStr) {
   `;
 }
 
+// Format decimal min/km to "M:SS min/km · X.X km/h"
+function formatPaceDisplay(decimalPace) {
+  const p = parseFloat(decimalPace);
+  if (!p || p <= 0) return '';
+  const mins = Math.floor(p);
+  const secs = Math.round((p - mins) * 60);
+  const kmh = (60 / p).toFixed(1);
+  return `${mins}:${String(secs).padStart(2,'0')} min/km · ${kmh} km/h`;
+}
+
 function computeZ2Pace() {
   if (!currentDraft) return;
   const min = parseFloat(currentDraft.duration_min) || 0;
   const sec = parseFloat(currentDraft.duration_sec) || 0;
   const totalMin = min + sec / 60;
   const dist = parseFloat(currentDraft.distance);
-  const paceEl = document.getElementById('z2-pace');
+  const displayEl = document.getElementById('z2-pace-display');
   if (totalMin > 0 && dist > 0) {
-    const pace = (totalMin / dist).toFixed(2);
-    currentDraft.avg_pace = pace;
-    if (paceEl) paceEl.value = pace;
+    const pace = totalMin / dist;
+    currentDraft.avg_pace = pace.toFixed(4);
+    if (displayEl) displayEl.innerHTML = formatPaceDisplay(pace);
     saveDraft(currentDayTypeId, currentDayDate, currentDraft);
+  } else if (displayEl) {
+    displayEl.innerHTML = '<span style="color:var(--text-3);font-weight:400">Se calcula con distancia + duración</span>';
   }
 }
 
