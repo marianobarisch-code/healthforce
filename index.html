@@ -268,6 +268,7 @@
     .btn:active { opacity: 0.85; }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+    .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); margin-top: 10px; }
 
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 200; display: none; }
     .modal-overlay.open { display: flex; align-items: flex-end; }
@@ -1070,11 +1071,18 @@ function mapServerToLocal(sw) {
   }
   if (sw.cardio_metrics && sw.cardio_metrics.length) {
     const cm = sw.cardio_metrics[0];
+    // Convert km/h back to min/km for local display
+    const paceMinKm = cm.avg_pace_kmh && cm.avg_pace_kmh > 0 ? (60 / cm.avg_pace_kmh).toFixed(2) : cm.avg_pace_kmh;
     Object.assign(local, {
       velocity: cm.velocity_kmh, rounds_completed: cm.rounds_completed, rounds_planned: cm.rounds_planned,
       series_completed: cm.series_completed, series_planned: cm.series_planned,
-      duration: cm.duration_min, avg_pace: cm.avg_pace_kmh, rpe: cm.rpe
+      duration: cm.duration_min, avg_pace: paceMinKm, distance: cm.distance_km, rpe: cm.rpe
     });
+    // Populate duration_min/duration_sec from total duration
+    if (cm.duration_min) {
+      local.duration_min = Math.floor(cm.duration_min).toString();
+      local.duration_sec = Math.round((cm.duration_min % 1) * 60).toString();
+    }
   }
   return local;
 }
@@ -1112,14 +1120,20 @@ async function pushWorkoutToServer(localWorkout) {
       if (error) throw error;
     }
   } else {
+    // Convert pace from min/km to km/h for DB
+    let paceKmh = null;
+    if (localWorkout.avg_pace && Number(localWorkout.avg_pace) > 0) {
+      paceKmh = Math.round((60 / Number(localWorkout.avg_pace)) * 10) / 10;
+    }
     const { error } = await sb.from('cardio_metrics').insert({
       workout_id: w.id,
       velocity_kmh: localWorkout.velocity ? Number(localWorkout.velocity) : null,
       rounds_completed: localWorkout.rounds_completed ? Number(localWorkout.rounds_completed) : null,
       series_completed: localWorkout.series_completed ? Number(localWorkout.series_completed) : null,
-      duration_min: localWorkout.duration ? Number(localWorkout.duration) : null,
-      avg_pace_kmh: localWorkout.avg_pace ? Number(localWorkout.avg_pace) : null,
-      rpe: localWorkout.rpe ? Number(localWorkout.rpe) : null,
+      duration_min: localWorkout.duration ? Math.round(Number(localWorkout.duration)) : null,
+      avg_pace_kmh: paceKmh,
+      distance_km: localWorkout.distance ? Number(localWorkout.distance) : null,
+      rpe: localWorkout.rpe ? Math.round(Number(localWorkout.rpe)) : null,
       notes: localWorkout.notes || null
     });
     if (error) throw error;
@@ -1673,7 +1687,9 @@ function renderStrengthDay(typeId, dateStr) {
 
   html += '</div>';
   if (!draft.exercise_order.length) html += '<div class="empty">No hay ejercicios cargados. Tocá "+ Agregar ejercicio" arriba.</div>';
+  const hasExisting = !!workoutForTypeAndDate(typeId, dateStr);
   html += `<button class="btn" onclick="finishWorkout()">Finalizar entrenamiento</button>`;
+  if (hasExisting) html += `<button class="btn btn-danger" onclick="deleteWorkout()">Eliminar entrenamiento</button>`;
   content.innerHTML = html;
   const firstCard = content.querySelector('.exercise-card');
   if (firstCard) firstCard.classList.add('expanded');
@@ -1773,15 +1789,30 @@ function renderSprintsDay(dateStr) {
       <div class="form-field"><label>Notas (opcional)</label><input type="text" value="${draft.notes ?? ''}" onchange="updateCardio('notes', this.value)"></div>
     </div>
     <button class="btn" onclick="finishWorkout()">Finalizar entrenamiento</button>
+    ${!!workoutForTypeAndDate('sprints', dateStr) ? '<button class="btn btn-danger" onclick="deleteWorkout()">Eliminar entrenamiento</button>' : ''}
   `;
 }
 
 function renderZ2Day(dateStr) {
   const week = getCurrentWeek();
   const prescription = CARDIO_PROGRESSION.z2.find(p => p.week === week) || CARDIO_PROGRESSION.z2[CARDIO_PROGRESSION.z2.length - 1];
-  const draft = loadOrCreateDraft('z2', dateStr, () => ({ type_id: 'z2', date: dateStr, duration: '', avg_pace: '', rpe: '', notes: '' }));
+  const draft = loadOrCreateDraft('z2', dateStr, () => ({
+    type_id: 'z2', date: dateStr, duration_min: '', duration_sec: '', distance: '', avg_pace: '', rpe: '', notes: ''
+  }));
+  // Migrate old duration field (was single "duration" in min)
+  if (draft.duration && !draft.duration_min) {
+    const totalMin = parseFloat(draft.duration);
+    if (!isNaN(totalMin)) {
+      draft.duration_min = Math.floor(totalMin).toString();
+      draft.duration_sec = Math.round((totalMin % 1) * 60).toString();
+    }
+    delete draft.duration;
+  }
   currentDraft = draft;
   saveDraft('z2', dateStr, draft);
+
+  const existingWorkout = workoutForTypeAndDate('z2', dateStr);
+
   document.getElementById('day-content').innerHTML = `
     <div class="cardio-prescription">
       <div class="label">Plan de hoy · Semana ${week}</div>
@@ -1789,19 +1820,48 @@ function renderZ2Day(dateStr) {
       <div class="meta">Conversacional · 65-75% FCmax · aire libre</div>
     </div>
     <div class="cardio-log-form">
-      <div class="form-field"><label>Duración real (min)</label><input type="number" value="${draft.duration ?? ''}" placeholder="${prescription.duration}" onchange="updateCardio('duration', this.value)"></div>
-      <div class="form-field"><label>Ritmo promedio km/h (opcional)</label><input type="number" step="0.1" value="${draft.avg_pace ?? ''}" onchange="updateCardio('avg_pace', this.value)"></div>
-      <div class="form-field"><label>RPE 1-5</label><select onchange="updateCardio('rpe', this.value)"><option value="">—</option>${[1,2,3,4,5].map(r => `<option value="${r}" ${draft.rpe == r ? 'selected' : ''}>${r}</option>`).join('')}</select></div>
+      <div class="form-field">
+        <label>Duración</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="number" style="flex:1" value="${draft.duration_min ?? ''}" placeholder="${prescription.duration}" min="0" onchange="updateCardio('duration_min', this.value); computeZ2Pace()">
+          <span style="color:var(--text-3);font-size:13px">min</span>
+          <input type="number" style="flex:1" value="${draft.duration_sec ?? ''}" placeholder="0" min="0" max="59" onchange="updateCardio('duration_sec', this.value); computeZ2Pace()">
+          <span style="color:var(--text-3);font-size:13px">seg</span>
+        </div>
+      </div>
+      <div class="form-field"><label>Distancia (km)</label><input type="number" step="0.01" value="${draft.distance ?? ''}" placeholder="ej: 5.2" onchange="updateCardio('distance', this.value); computeZ2Pace()"></div>
+      <div class="form-field">
+        <label>Ritmo promedio (min/km)</label>
+        <input type="number" step="0.01" id="z2-pace" value="${draft.avg_pace ?? ''}" placeholder="auto si hay distancia" onchange="updateCardio('avg_pace', this.value)">
+      </div>
+      <div class="form-field"><label>Esfuerzo percibido (RPE 1-5)</label><input type="number" step="0.5" min="1" max="5" value="${draft.rpe ?? ''}" placeholder="ej: 3.5" onchange="updateCardio('rpe', this.value)"></div>
       <div class="form-field"><label>Notas (opcional)</label><input type="text" value="${draft.notes ?? ''}" onchange="updateCardio('notes', this.value)"></div>
     </div>
     <button class="btn" onclick="finishWorkout()">Finalizar entrenamiento</button>
+    ${existingWorkout ? '<button class="btn btn-danger" onclick="deleteWorkout()">Eliminar entrenamiento</button>' : ''}
   `;
+}
+
+function computeZ2Pace() {
+  if (!currentDraft) return;
+  const min = parseFloat(currentDraft.duration_min) || 0;
+  const sec = parseFloat(currentDraft.duration_sec) || 0;
+  const totalMin = min + sec / 60;
+  const dist = parseFloat(currentDraft.distance);
+  const paceEl = document.getElementById('z2-pace');
+  if (totalMin > 0 && dist > 0) {
+    const pace = (totalMin / dist).toFixed(2);
+    currentDraft.avg_pace = pace;
+    if (paceEl) paceEl.value = pace;
+    saveDraft(currentDayTypeId, currentDayDate, currentDraft);
+  }
 }
 
 function renderRestDay(dateStr) {
   const draft = loadOrCreateDraft('rest', dateStr, () => ({ type_id: 'rest', date: dateStr, notes: '' }));
   currentDraft = draft;
   saveDraft('rest', dateStr, draft);
+  const existingWorkout = workoutForTypeAndDate('rest', dateStr);
   document.getElementById('day-content').innerHTML = `
     <div class="cardio-log-form">
       <div class="form-field">
@@ -1810,6 +1870,7 @@ function renderRestDay(dateStr) {
       </div>
     </div>
     <button class="btn" onclick="finishWorkout()">Marcar descanso</button>
+    ${existingWorkout ? '<button class="btn btn-danger" onclick="deleteWorkout()">Eliminar registro</button>' : ''}
   `;
 }
 
@@ -1817,13 +1878,15 @@ function renderSimpleCardio(typeId, dateStr) {
   const draft = loadOrCreateDraft(typeId, dateStr, () => ({ type_id: typeId, date: dateStr, duration: '', rpe: '', notes: '' }));
   currentDraft = draft;
   saveDraft(typeId, dateStr, draft);
+  const existingWorkout = workoutForTypeAndDate(typeId, dateStr);
   document.getElementById('day-content').innerHTML = `
     <div class="cardio-log-form">
       <div class="form-field"><label>Duración (min)</label><input type="number" value="${draft.duration ?? ''}" onchange="updateCardio('duration', this.value)"></div>
-      <div class="form-field"><label>RPE 1-5</label><select onchange="updateCardio('rpe', this.value)"><option value="">—</option>${[1,2,3,4,5].map(r => `<option value="${r}" ${draft.rpe == r ? 'selected' : ''}>${r}</option>`).join('')}</select></div>
+      <div class="form-field"><label>RPE 1-5</label><input type="number" step="0.5" min="1" max="5" value="${draft.rpe ?? ''}" placeholder="ej: 3.5" onchange="updateCardio('rpe', this.value)"></div>
       <div class="form-field"><label>Notas (opcional)</label><input type="text" value="${draft.notes ?? ''}" onchange="updateCardio('notes', this.value)"></div>
     </div>
     <button class="btn" onclick="finishWorkout()">Finalizar entrenamiento</button>
+    ${existingWorkout ? '<button class="btn btn-danger" onclick="deleteWorkout()">Eliminar entrenamiento</button>' : ''}
   `;
 }
 
@@ -1835,6 +1898,12 @@ function updateCardio(field, val) {
 
 async function finishWorkout() {
   if (!currentDraft) return;
+  // Z2: compute total duration from min+sec, and store distance
+  if (currentDraft.type_id === 'z2' && (currentDraft.duration_min || currentDraft.duration_sec)) {
+    const min = parseFloat(currentDraft.duration_min) || 0;
+    const sec = parseFloat(currentDraft.duration_sec) || 0;
+    currentDraft.duration = (min + sec / 60).toFixed(2);
+  }
   const workouts = loadWorkouts();
   const existing = workouts.find(w => w.type_id === currentDraft.type_id && w.date === currentDraft.date);
   if (existing && existing.server_id) currentDraft.server_id = existing.server_id;
@@ -1861,6 +1930,29 @@ async function finishWorkout() {
   }
   showSyncIndicator(false);
   setTimeout(() => showScreen('home'), 700);
+}
+
+async function deleteWorkout() {
+  if (!currentDayTypeId || !currentDayDate) return;
+  if (!confirm('¿Eliminar este entrenamiento?')) return;
+  const workouts = loadWorkouts();
+  const existing = workouts.find(w => w.type_id === currentDayTypeId && w.date === currentDayDate);
+  if (!existing) { toast('No hay entrenamiento guardado', true); return; }
+  const filtered = workouts.filter(w => !(w.type_id === currentDayTypeId && w.date === currentDayDate));
+  saveWorkouts(filtered);
+  clearDraft(currentDayTypeId, currentDayDate);
+  toast('Entrenamiento eliminado');
+  if (existing.server_id && sb) {
+    showSyncIndicator(true);
+    try {
+      await sb.from('workouts').delete().eq('id', existing.server_id);
+    } catch (e) {
+      console.error('Delete from server failed:', e);
+      toast('Eliminado local, sync pendiente', true);
+    }
+    showSyncIndicator(false);
+  }
+  setTimeout(() => showScreen('home'), 500);
 }
 
 function showAddExerciseModal() {
