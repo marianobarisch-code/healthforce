@@ -17,6 +17,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
   <style>
     :root {
       --bg: #0a0a0a; --surface: #171717; --surface-2: #262626; --border: #2a2a2a;
@@ -226,7 +227,16 @@
     .exercise-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
     .exercise-card { background: var(--surface); border-radius: var(--radius); padding: 14px; border: 1px solid var(--border); }
     .exercise-card.superset { border-color: var(--accent-2); }
-    .exercise-header { display: flex; justify-content: space-between; align-items: flex-start; cursor: pointer; gap: 12px; }
+    .exercise-card.completed { border-color: var(--success); }
+    .exercise-header { display: flex; justify-content: space-between; align-items: flex-start; cursor: pointer; gap: 10px; }
+    .drag-handle { width: 28px; height: 36px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text-3); cursor: grab; touch-action: none; margin: -6px 0 -6px -4px; }
+    .drag-handle:active { cursor: grabbing; color: var(--text-2); }
+    .drag-handle svg { width: 18px; height: 18px; pointer-events: none; }
+    .exercise-check { width: 26px; height: 26px; border-radius: 50%; background: var(--success); color: #fff; display: none; align-items: center; justify-content: center; flex-shrink: 0; }
+    .exercise-card.completed .exercise-check { display: flex; }
+    .exercise-check svg { width: 15px; height: 15px; }
+    .sortable-ghost { opacity: 0.4; }
+    .sortable-chosen { box-shadow: 0 6px 20px rgba(0,0,0,0.45); }
     .exercise-info { flex: 1; min-width: 0; }
     .exercise-name { font-size: 15px; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.01em; line-height: 1.3; }
     .exercise-meta { font-size: 12px; color: var(--text-2); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -542,16 +552,18 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 const DAY_TEMPLATES = [
-  { type_id: 'day3', name: 'Legs', short: 'Legs', desc: 'Funcional, no hipertrofia', category: 'strength', weekday: 1, muscles: ['Piernas','Glúteos','Pantorrillas'] },
-  { type_id: 'day4', name: 'Full Upper Body', short: 'Full Upper Body', desc: 'Segundo upper, complementario', category: 'strength', weekday: 2, muscles: ['Pecho','Espalda','Brazos'] },
-  { type_id: 'day1', name: 'Chest, Shoulder, Biceps', short: 'Chest, Shoulder, Biceps', desc: 'Empuje vertical + horizontal alto', category: 'strength', weekday: 4, muscles: ['Pecho','Hombros','Bíceps'] },
-  { type_id: 'day2', name: 'Back, Shoulder, Triceps', short: 'Back, Shoulder, Triceps', desc: 'Tracción + extensión codo', category: 'strength', weekday: 5, muscles: ['Espalda','Hombros','Tríceps'] },
-  { type_id: 'sprints', name: 'Sprints', short: 'Sprints', desc: 'VO2max + capacidad anaeróbica', category: 'cardio_intervals', weekday: 6, muscles: ['Cardio'] },
-  { type_id: 'z2', name: 'Running Z2', short: 'Z2', desc: 'Base aeróbica · ritmo conversacional', category: 'cardio_steady', weekday: 7, muscles: ['Cardio'] },
-  { type_id: 'natacion', name: 'Swimming', short: 'Swimming', desc: 'Recuperación activa', category: 'cardio_steady', weekday: 1, muscles: ['Cardio'] },
+  { type_id: 'upper-a', name: 'Upper A', short: 'Upper A', desc: 'Empuje / horizontal', category: 'strength', weekday: 1, muscles: ['Pecho','Espalda','Hombros','Brazos'] },
+  { type_id: 'upper-b', name: 'Upper B', short: 'Upper B', desc: 'Tracción / vertical', category: 'strength', weekday: 5, muscles: ['Espalda','Pecho','Hombros','Brazos'] },
+  { type_id: 'day3', name: 'Legs', short: 'Legs', desc: 'Funcional, no hipertrofia', category: 'strength', weekday: 3, muscles: ['Piernas','Glúteos','Pantorrillas'] },
+  { type_id: 'natacion', name: 'Swimming', short: 'Swimming', desc: 'Recuperación activa', category: 'cardio_steady', weekday: null, muscles: ['Cardio'] },
   { type_id: 'padel', name: 'Pádel', short: 'Pádel', desc: 'Intermitente alta intensidad', category: 'sport', weekday: 5, muscles: ['Cardio'] },
-  { type_id: 'mobility', name: 'Movilidad', short: 'Mobility', desc: 'Movilidad y activación ligera', category: 'mobility', weekday: null, muscles: [] },
-  { type_id: 'rest', name: 'Rest Day', short: 'Rest', desc: 'Descanso completo', category: 'rest', weekday: null, muscles: [] }
+  { type_id: 'z2', name: 'Running Z2', short: 'Z2', desc: 'Base aeróbica · ritmo conversacional', category: 'cardio_steady', weekday: 2, muscles: ['Cardio'] },
+  { type_id: 'sprints', name: 'Sprints', short: 'Sprints', desc: 'VO2max + capacidad anaeróbica', category: 'cardio_intervals', weekday: 6, muscles: ['Cardio'] },
+  { type_id: 'mobility', name: 'Mobility', short: 'Mobility', desc: 'Movilidad y activación ligera', category: 'mobility', weekday: 4, muscles: [] },
+  { type_id: 'rest', name: 'Full Rest', short: 'Rest', desc: 'Descanso completo', category: 'rest', weekday: 7, muscles: [] },
+  { type_id: 'day1', name: 'Chest, Shoulder, Biceps', short: 'Chest, Shoulder, Biceps', desc: 'Empuje vertical + horizontal alto', category: 'strength', weekday: null, legacy: true, muscles: ['Pecho','Hombros','Bíceps'] },
+  { type_id: 'day2', name: 'Back, Shoulder, Triceps', short: 'Back, Shoulder, Triceps', desc: 'Tracción + extensión codo', category: 'strength', weekday: null, legacy: true, muscles: ['Espalda','Hombros','Tríceps'] },
+  { type_id: 'day4', name: 'Full Upper Body', short: 'Full Upper Body', desc: 'Segundo upper, complementario', category: 'strength', weekday: null, legacy: true, muscles: ['Pecho','Espalda','Brazos'] }
 ];
 
 const EXERCISES_BASE = [
@@ -633,6 +645,28 @@ const DAY_EXERCISES = {
     { id: 'lateral-raise-db', sets: 3, reps: '8', rir: 'casi al fallo', ss_group: 1, notes: 'Triset' },
     { id: 'db-row-uni', sets: 3, reps: '8', rir: 'casi al fallo', ss_group: 2, notes: 'SS2' },
     { id: 'overhead-ext-rope', sets: 3, reps: '8', rir: 'casi al fallo', ss_group: 2, notes: 'SS2' }
+  ],
+  'upper-a': [
+    { id: 'bench-press', sets: 4, reps: '6-8', rir: 'RIR 1-2', ss_group: null, notes: 'Pesado · fresco al inicio' },
+    { id: 'lat-pulldown', sets: 3, reps: '8', rir: 'RIR 1-2', ss_group: null, notes: 'Vertical' },
+    { id: 'machine-ohp', sets: 3, reps: '8', rir: 'RIR 1-2', ss_group: null, notes: 'Hombro' },
+    { id: 'cable-fly', sets: 3, reps: '10-12', rir: 'casi al fallo', ss_group: 1, notes: 'SS1' },
+    { id: 'technogym-row', sets: 3, reps: '10', rir: 'casi al fallo', ss_group: 1, notes: 'SS1' },
+    { id: 'lateral-raise-db', sets: 3, reps: '10-12', rir: 'fallo', ss_group: 2, notes: 'SS2' },
+    { id: 'incline-db-curl', sets: 3, reps: '10', rir: 'casi al fallo', ss_group: 2, notes: 'SS2' },
+    { id: 'overhead-ext-rope', sets: 3, reps: '12', rir: 'casi al fallo', ss_group: null, notes: 'Tríceps' },
+    { id: 'pallof-press', sets: 2, reps: '10 por lado', rir: '', ss_group: null, notes: 'Core · cierre' }
+  ],
+  'upper-b': [
+    { id: 'pull-ups', sets: 3, reps: '6-8', rir: 'RIR 1-2', ss_group: null, notes: 'Lastradas o asistidas' },
+    { id: 'incline-db', sets: 3, reps: '8', rir: 'RIR 1-2', ss_group: null, notes: 'Pecho · fresco al inicio' },
+    { id: 'db-row-uni', sets: 3, reps: '8-10', rir: 'RIR 1-2', ss_group: null, notes: 'Horizontal' },
+    { id: 'pec-deck', sets: 3, reps: '10', rir: 'casi al fallo', ss_group: 1, notes: 'SS1' },
+    { id: 'hammer-curl', sets: 3, reps: '10', rir: 'casi al fallo', ss_group: 1, notes: 'SS1' },
+    { id: 'face-pull', sets: 3, reps: '12', rir: 'casi al fallo', ss_group: 2, notes: 'SS2' },
+    { id: 'dips-tricep', sets: 3, reps: '8-10', rir: 'casi al fallo', ss_group: 2, notes: 'SS2' },
+    { id: 'lateral-raise-cable', sets: 3, reps: '12', rir: 'fallo', ss_group: null, notes: 'Hombro lateral' },
+    { id: 'pallof-press', sets: 2, reps: '10 por lado', rir: '', ss_group: null, notes: 'Core · cierre' }
   ]
 };
 
@@ -1173,7 +1207,7 @@ document.querySelectorAll('.nav-btn[data-screen]').forEach(btn => {
 
 function showLogTrainingModal() {
   const sel = document.getElementById('log-type');
-  sel.innerHTML = DAY_TEMPLATES.map(t => `<option value="${t.type_id}">${t.name}</option>`).join('');
+  sel.innerHTML = DAY_TEMPLATES.filter(t => !t.legacy).map(t => `<option value="${t.type_id}">${t.name}</option>`).join('');
   const today = new Date();
   document.getElementById('log-date').value = todayStr();
   const tpls = templatesForWeekday(getWeekday(today));
@@ -1274,8 +1308,8 @@ function attachWeekSwipe() {
 }
 
 // ── Smart weekly suggestion engine ──
-const STRENGTH_TYPES = new Set(['day1','day2','day3','day4']);
-const UPPER_TYPES = new Set(['day1','day2','day4']);
+const STRENGTH_TYPES = new Set(['upper-a','upper-b','day3','day1','day2','day4']);
+const UPPER_TYPES = new Set(['upper-a','upper-b','day1','day2','day4']);
 const CATEGORY_LABELS = { strength: 'Gym', cardio_intervals: 'Cardio', cardio_steady: 'Cardio', sport: 'Deporte', mobility: 'Movilidad', rest: 'Descanso' };
 
 // Planned activities per weekday (1=Mon..7=Sun) from DAY_TEMPLATES
@@ -1600,7 +1634,7 @@ function openDay(typeId, dateStr) {
   const d = new Date(dateStr + 'T12:00:00');
   document.getElementById('day-date').textContent = d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
   const typeSel = document.getElementById('day-type-select');
-  typeSel.innerHTML = DAY_TEMPLATES.map(t => `<option value="${t.type_id}" ${t.type_id === typeId ? 'selected' : ''}>${t.name}</option>`).join('');
+  typeSel.innerHTML = DAY_TEMPLATES.filter(t => !t.legacy || t.type_id === typeId).map(t => `<option value="${t.type_id}" ${t.type_id === typeId ? 'selected' : ''}>${t.name}</option>`).join('');
   if (tpl.category === 'strength') renderStrengthDay(typeId, dateStr);
   else if (typeId === 'sprints') renderSprintsDay(dateStr);
   else if (typeId === 'z2') renderZ2Day(dateStr);
@@ -1696,18 +1730,19 @@ function renderStrengthDay(typeId, dateStr) {
     html += `
       <div class="exercise-card${meta && meta.ss_group ? ' superset' : ''}" data-exid="${exId}">
         <div class="exercise-header" onclick="toggleExercise('${exId}')">
+          <div class="drag-handle" title="Arrastrar para reordenar" onclick="event.stopPropagation()"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></div>
           <div class="exercise-info">
             <div class="exercise-name">${ex.name}</div>
             <div class="exercise-meta">${metaLine}</div>
           </div>
+          <div class="exercise-check" aria-label="Completado"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
           <div class="exercise-collapse"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg></div>
         </div>
         <div class="exercise-body">
           ${lastSessionHTML}
           ${suggestionHTML}
           <div class="exercise-actions">
-            <button class="ex-action-btn" onclick="moveExercise('${exId}', -1)" ${isFirst ? 'disabled' : ''} title="Subir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="18 15 12 9 6 15"/></svg></button>
-            <button class="ex-action-btn" onclick="moveExercise('${exId}', 1)" ${isLast ? 'disabled' : ''} title="Bajar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg></button>
+            <span style="flex:1; font-size:11px; color:var(--text-3); align-self:center;">Mantené ⠿ y arrastrá para reordenar</span>
             <button class="ex-action-btn danger" onclick="removeExerciseFromDay('${exId}')" title="Quitar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 01-2 2H9a2 2 0 01-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button>
           </div>
           <div class="sets-table-header"><span>#</span><span>${loadUnitLabel(exId)}</span><span>Reps</span><span>RPE</span><span></span></div>
@@ -1726,6 +1761,35 @@ function renderStrengthDay(typeId, dateStr) {
   content.innerHTML = html;
   const firstCard = content.querySelector('.exercise-card');
   if (firstCard) firstCard.classList.add('expanded');
+  initExerciseSortable();
+  draft.exercise_order.forEach(updateExerciseCompletion);
+}
+
+let exerciseSortable = null;
+function initExerciseSortable() {
+  const list = document.querySelector('#day-content .exercise-list');
+  if (!list || typeof Sortable === 'undefined') return;
+  if (exerciseSortable) { try { exerciseSortable.destroy(); } catch (e) {} }
+  exerciseSortable = Sortable.create(list, {
+    handle: '.drag-handle',
+    animation: 150,
+    onEnd: () => {
+      const ids = [...list.querySelectorAll('.exercise-card')].map(c => c.dataset.exid);
+      currentDraft.exercise_order = ids;
+      saveDraft(currentDayTypeId, currentDayDate, currentDraft);
+    }
+  });
+}
+
+// Un ejercicio está "realizado" cuando todas sus series tienen reps y RPE cargados.
+function isExerciseComplete(exId) {
+  const arr = (currentDraft && currentDraft.sets && currentDraft.sets[exId]) || [];
+  if (!arr.length) return false;
+  return arr.every(s => s.reps !== '' && s.reps != null && s.rpe !== '' && s.rpe != null);
+}
+function updateExerciseCompletion(exId) {
+  const card = document.querySelector(`.exercise-card[data-exid="${exId}"]`);
+  if (card) card.classList.toggle('completed', isExerciseComplete(exId));
 }
 
 function renderSets(exId, sets, history) {
@@ -1765,6 +1829,7 @@ function updateSet(exId, idx, field, val) {
   saveDraft(currentDayTypeId, currentDayDate, currentDraft);
   // Re-render sets para detectar PRs
   if (field === 'weight' || field === 'reps') refreshSetsForExercise(exId);
+  updateExerciseCompletion(exId);
 }
 function addSet(exId) {
   if (!currentDraft.sets[exId]) currentDraft.sets[exId] = [];
@@ -1772,6 +1837,7 @@ function addSet(exId) {
   arr.push({ set_number: arr.length + 1, weight: '', reps: '', rpe: '' });
   saveDraft(currentDayTypeId, currentDayDate, currentDraft);
   refreshSetsForExercise(exId);
+  updateExerciseCompletion(exId);
 }
 function removeSet(exId, idx) {
   const arr = currentDraft.sets[exId];
@@ -1779,6 +1845,7 @@ function removeSet(exId, idx) {
   arr.forEach((s, i) => s.set_number = i + 1);
   saveDraft(currentDayTypeId, currentDayDate, currentDraft);
   refreshSetsForExercise(exId);
+  updateExerciseCompletion(exId);
 }
 function moveExercise(exId, delta) {
   const order = currentDraft.exercise_order;
@@ -2299,7 +2366,7 @@ function openAssignDayModal(dateStr) {
   document.getElementById('assign-day-label').textContent =
     d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
   document.getElementById('assign-day-type').innerHTML =
-    DAY_TEMPLATES.map(t => `<option value="${t.type_id}">${t.name}</option>`).join('');
+    DAY_TEMPLATES.filter(t => !t.legacy).map(t => `<option value="${t.type_id}">${t.name}</option>`).join('');
   document.getElementById('modal-assign-day').classList.add('open');
 }
 
