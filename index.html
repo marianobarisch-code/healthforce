@@ -386,6 +386,8 @@
     </div>
   </button>
 
+  <div id="whoop-card"></div>
+
   <div class="week-section-label" id="week-section-label">Esta semana</div>
   <div class="week-day-cards" id="week-day-cards"></div>
 
@@ -1485,6 +1487,7 @@ function renderHome() {
   if (hour >= 19 || hour < 6) greeting = 'Buenas noches, Mariano';
   document.getElementById('home-greeting').textContent = greeting;
 
+  renderWhoopCard();
   renderMuscleWeekDashboard();
 
   // Build smart week plan
@@ -2756,6 +2759,106 @@ function toast(msg, isError) {
   setTimeout(() => t.classList.remove('show'), 2400);
 }
 
+// ===== Integración WHOOP =====
+const WHOOP_FN_BASE = SUPABASE_URL + '/functions/v1';
+let whoopState = { connected: false, recovery: null, loading: false };
+
+function recoveryColor(score) {
+  if (score == null) return 'var(--text-2)';
+  if (score >= 67) return 'var(--success)';
+  if (score >= 34) return 'var(--gold)';
+  return 'var(--danger)';
+}
+
+async function loadWhoopState() {
+  if (!currentSession) return;
+  const uid = currentSession.user.id;
+  try {
+    const [{ data: conn }, { data: rec }] = await Promise.all([
+      sb.from('whoop_connections').select('user_id, updated_at').eq('user_id', uid).maybeSingle(),
+      sb.from('whoop_recovery').select('date, recovery_score, hrv_rmssd, resting_hr')
+        .eq('user_id', uid).order('date', { ascending: false }).limit(1).maybeSingle(),
+    ]);
+    whoopState.connected = !!conn;
+    whoopState.recovery = rec || null;
+  } catch (e) {
+    console.warn('whoop state load failed', e);
+  }
+}
+
+function renderWhoopCard() {
+  const el = document.getElementById('whoop-card');
+  if (!el) return;
+  const wlogo = '<span style="font-weight:800;letter-spacing:.5px;color:var(--text-2);font-size:12px">WHOOP</span>';
+
+  if (!whoopState.connected) {
+    el.innerHTML = `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div>${wlogo}<div style="color:var(--text);font-weight:600;margin-top:2px">Conectá tu Whoop</div>
+        <div style="color:var(--text-3);font-size:12px">Recovery y cardio automáticos</div></div>
+        <button onclick="connectWhoop()" style="background:var(--accent);color:#0a0a0a;border:none;border-radius:999px;padding:10px 16px;font-weight:700;font-size:14px;white-space:nowrap">Conectar</button>
+      </div>`;
+    return;
+  }
+
+  const rec = whoopState.recovery;
+  const score = rec ? rec.recovery_score : null;
+  const color = recoveryColor(score);
+  const dateTxt = rec ? new Date(rec.date + 'T00:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }) : '—';
+  const syncLabel = whoopState.loading ? 'Sincronizando…' : 'Sincronizar';
+  const scoreHTML = score != null
+    ? `<div style="font-size:32px;font-weight:800;color:${color};line-height:1">${Math.round(score)}<span style="font-size:14px;color:var(--text-3)">%</span></div>`
+    : `<div style="font-size:15px;color:var(--text-2)">Sin datos aún</div>`;
+  const sub = rec
+    ? `Recovery · ${dateTxt}${rec.hrv_rmssd != null ? ' · HRV ' + Math.round(rec.hrv_rmssd) + 'ms' : ''}${rec.resting_hr != null ? ' · FC rep ' + Math.round(rec.resting_hr) : ''}`
+    : 'Tocá Sincronizar para traer tus datos';
+
+  el.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid ${color};border-radius:var(--radius);padding:16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div style="min-width:0">${wlogo}<div style="display:flex;align-items:baseline;gap:6px;margin-top:2px">${scoreHTML}</div>
+      <div style="color:var(--text-3);font-size:12px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sub}</div></div>
+      <button onclick="syncWhoop()" ${whoopState.loading ? 'disabled' : ''} style="background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:10px 16px;font-weight:600;font-size:13px;white-space:nowrap;opacity:${whoopState.loading ? '.6' : '1'}">${syncLabel}</button>
+    </div>`;
+}
+
+function connectWhoop() {
+  if (!currentSession) { toast('Iniciá sesión primero', true); return; }
+  window.location.href = `${WHOOP_FN_BASE}/whoop-auth-start?uid=${currentSession.user.id}`;
+}
+
+async function syncWhoop() {
+  if (whoopState.loading) return;
+  whoopState.loading = true;
+  renderWhoopCard();
+  try {
+    const { data, error } = await sb.functions.invoke('whoop-sync');
+    if (error || (data && data.error)) {
+      console.error('whoop-sync error', error || data.error);
+      toast('No se pudo sincronizar Whoop', true);
+    } else {
+      toast(`Whoop: ${data.recovery} recovery · ${data.workouts} workouts`);
+      await loadWhoopState();
+    }
+  } catch (e) {
+    console.error(e);
+    toast('No se pudo sincronizar Whoop', true);
+  } finally {
+    whoopState.loading = false;
+    renderWhoopCard();
+  }
+}
+
+function handleWhoopReturn() {
+  const params = new URLSearchParams(window.location.search);
+  const w = params.get('whoop');
+  if (!w) return;
+  if (w === 'connected') toast('Whoop conectado ✓');
+  else if (w === 'error') toast('Error al conectar Whoop', true);
+  // limpiar la query para que no reaparezca el toast al recargar
+  const clean = window.location.pathname + window.location.hash;
+  window.history.replaceState({}, '', clean);
+}
+
 async function init() {
   const { data: { session } } = await sb.auth.getSession();
   currentSession = session;
@@ -2763,7 +2866,9 @@ async function init() {
     showAppScreens();
     await syncFromServer();
     await retryPendingSyncs();
+    await loadWhoopState();
     renderHome();
+    handleWhoopReturn();
     maybeOfferSetPassword();
   } else {
     showLoginScreen();
@@ -2774,7 +2879,9 @@ async function init() {
       showAppScreens();
       await syncFromServer();
       await retryPendingSyncs();
+      await loadWhoopState();
       renderHome();
+      handleWhoopReturn();
       maybeOfferSetPassword();
     } else if (!newSession && currentSession) {
       currentSession = null;
