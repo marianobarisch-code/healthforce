@@ -1518,14 +1518,33 @@ function renderHome() {
     const card = document.createElement('div');
     const hasDone = day.done.length > 0;
     const suggestions = day.suggestions || [];
-    const isRest = day.isRest || (day.isPast && !hasDone && day.planned.length === 0);
-    const isRestExplicit = !hasDone && suggestions.length === 0;
+
+    // Rest/movilidad logueado pisa todo
+    const hasRestDone = day.done.some(d => {
+      const t = DAY_TEMPLATES.find(tpl => tpl.type_id === d.type_id);
+      return t && (t.category === 'rest' || t.category === 'mobility');
+    });
+    const doneIds = new Set(day.done.map(d => d.type_id));
+    // Programado pero NO realizado — nunca se asume hecho
+    let pendingItems = [];
+    if (!hasRestDone) {
+      if (day.isToday || day.isFuture) {
+        pendingItems = suggestions.filter(id => !doneIds.has(id)).map(id => ({ type_id: id, name: tplName(id) }));
+      } else if (day.isPast) {
+        pendingItems = day.planned
+          .filter(p => p.category !== 'rest' && p.category !== 'mobility' && !doneIds.has(p.type_id))
+          .map(p => ({ type_id: p.type_id, name: p.name }));
+      }
+    }
+    const allDone = pendingItems.length === 0;
+    const plannedReal = day.planned.filter(p => p.category !== 'rest' && p.category !== 'mobility');
+    const dayIsRest = day.isRest || (!hasDone && pendingItems.length === 0 && plannedReal.length === 0);
 
     let classes = 'week-day-card';
-    if (hasDone && (day.isPast || (day.isToday && suggestions.length === 0))) classes += ' completed';
+    if (hasDone && allDone) classes += ' completed';
     if (day.isToday) classes += ' is-today';
-    if (day.isFuture) classes += ' future';
-    if (isRest && !day.isToday) classes += ' rest-day';
+    if (day.isFuture && !hasDone) classes += ' future';
+    if (dayIsRest && !day.isToday) classes += ' rest-day';
     card.className = classes;
 
     // Content
@@ -1535,50 +1554,30 @@ function renderHome() {
     let isRestDay = false;
 
     if (hasDone) {
-      // If rest is among done items, only show rest (rest overrides everything)
-      const hasRestDone = day.done.some(d => {
-        const t = DAY_TEMPLATES.find(tpl => tpl.type_id === d.type_id);
-        return t && (t.category === 'rest' || t.category === 'mobility');
-      });
-      const displayDone = hasRestDone ? day.done.filter(d => {
-        const t = DAY_TEMPLATES.find(tpl => tpl.type_id === d.type_id);
-        return t && (t.category === 'rest' || t.category === 'mobility');
-      }) : day.done;
-
-      const names = displayDone.map(d => d.name);
-      nameText = names.join(' + ');
-      const cats = [...new Set(displayDone.map(d => tplCategory(d.type_id)))].join(' + ');
-      subText = cats;
-      // Tics for each completed activity
+      const displayDone = hasRestDone
+        ? day.done.filter(d => { const t = DAY_TEMPLATES.find(tpl => tpl.type_id === d.type_id); return t && (t.category === 'rest' || t.category === 'mobility'); })
+        : day.done;
+      nameText = displayDone.map(d => d.name).join(' + ');
+      const cats = [...new Set(displayDone.map(d => tplCategory(d.type_id)))].filter(Boolean).join(' + ');
+      // Un tic por cada actividad efectivamente realizada
       displayDone.forEach(() => {
         checksHTML += `<div class="week-day-card-check"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>`;
       });
-      // If today and still has suggestions pending (never if rest logged)
-      if (day.isToday && suggestions.length > 0 && !hasRestDone) {
-        nameText += ' + ' + suggestions.map(id => tplName(id)).join(' + ');
-        subText += ' · falta ' + suggestions.map(id => tplName(id)).join(', ');
-      }
-    } else if (suggestions.length > 0) {
-      // Show suggestion for today or future
-      nameText = suggestions.map(id => tplName(id)).join(' + ');
-      const cats = [...new Set(suggestions.map(id => tplCategory(id)))].join(' + ');
-      if (day.isToday) {
-        subText = cats + ' · pendiente';
+      // Lo programado pero no hecho se muestra aparte (sin tic), no se asume hecho
+      if (pendingItems.length > 0) {
+        const pn = pendingItems.map(p => p.name).join(', ');
+        subText = day.isPast ? `${cats} · ${pn} sin hacer` : `${cats} · falta ${pn}`;
       } else {
-        subText = 'Sugerido · ' + cats;
+        subText = cats;
       }
+    } else if (pendingItems.length > 0) {
+      nameText = pendingItems.map(p => p.name).join(' + ');
+      const catsP = [...new Set(pendingItems.map(p => tplCategory(p.type_id)))].filter(Boolean).join(' + ');
+      if (day.isToday) subText = catsP + ' · pendiente';
+      else if (day.isFuture) subText = 'Sugerido · ' + catsP;
+      else subText = 'Programado · no realizado';
       checksHTML = `<div class="week-day-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="9 18 15 12 9 6"/></svg></div>`;
-    } else if (day.isPast && !hasDone) {
-      // Past day with nothing done
-      if (day.planned.length > 0) {
-        nameText = 'Sin actividad';
-        subText = 'Planificado: ' + day.planned.map(p => p.name).join(', ');
-      } else {
-        nameText = 'Descanso';
-        isRestDay = true;
-      }
     } else {
-      // Future rest day
       nameText = 'Descanso';
       isRestDay = true;
     }
