@@ -367,6 +367,9 @@
       <h1>Healthforce</h1>
     </div>
     <div class="header-actions">
+      <button class="icon-btn" onclick="showScreen('settings')" title="Ajustes y conexiones">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      </button>
       <button class="icon-btn" onclick="openSetPasswordModal()" title="Setear/cambiar contraseña">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
       </button>
@@ -390,7 +393,6 @@
   <div id="whoop-cards"></div>
   <div id="today-activities"></div>
   <div id="steps-card"></div>
-  <div id="gcal-card"></div>
 
   <div class="week-section-label" id="week-section-label">Esta semana</div>
   <div class="week-day-cards" id="week-day-cards"></div>
@@ -445,6 +447,16 @@
 <section class="screen" id="screen-insights">
   <div class="header"><h1>Insights</h1></div>
   <div id="insights-content"></div>
+</section>
+
+<section class="screen" id="screen-settings">
+  <button class="back-btn" onclick="showScreen('home')">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="15 18 9 12 15 6"/></svg>
+    Volver
+  </button>
+  <div class="header"><h1>Ajustes</h1></div>
+  <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Conexiones</div>
+  <div id="gcal-card"></div>
 </section>
 
 <nav class="nav" id="bottom-nav">
@@ -1200,6 +1212,7 @@ function showScreen(name) {
   if (name === 'home') renderHome();
   if (name === 'analytics') renderAnalytics();
   if (name === 'insights') renderInsights();
+  if (name === 'settings') renderSettings();
   window.scrollTo(0, 0);
 }
 
@@ -1491,7 +1504,6 @@ function renderHome() {
   renderWhoopDashboard();
   renderTodayActivities();
   renderStepsCard();
-  renderGcalCard();
   renderMuscleWeekDashboard();
 
   // Build smart week plan
@@ -2945,21 +2957,62 @@ async function loadGcalState() {
     gcalState.connected = !!data;
   } catch (e) { console.warn('gcal state', e); }
 }
+function renderSettings() {
+  loadGcalState().then(renderGcalCard);
+  renderGcalCard();
+}
+
+function relTime(iso) {
+  if (!iso) return null;
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return 'recién';
+  if (mins < 60) return `hace ${mins} min`;
+  const h = Math.round(mins / 60);
+  if (h < 24) return `hace ${h} h`;
+  const d = Math.round(h / 24);
+  return `hace ${d} d`;
+}
+
+// Logos (chips) — Google Calendar + Google
+const LOGO_GCAL = `<svg viewBox="0 0 48 48" width="22" height="22"><rect x="9" y="11" width="30" height="28" rx="4" fill="#fff"/><rect x="9" y="11" width="7.5" height="6" fill="#4285F4"/><rect x="16.5" y="11" width="7.5" height="6" fill="#EA4335"/><rect x="24" y="11" width="7.5" height="6" fill="#FBBC05"/><rect x="31.5" y="11" width="7.5" height="6" fill="#34A853"/><text x="24" y="34" font-size="13" font-weight="800" fill="#1a73e8" text-anchor="middle" font-family="Arial,Helvetica,sans-serif">31</text></svg>`;
+const LOGO_GOOGLE = `<svg viewBox="0 0 48 48" width="20" height="20"><path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/><path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34A21.99 21.99 0 0 0 2 24c0 3.55.85 6.91 2.34 9.88l7.35-5.7z"/><path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/></svg>`;
+
+function gcalLastSync() { return localStorage.getItem('hf_gcal_last_sync'); }
+function gcalCardTap() {
+  if (gcalState.loading) return;
+  if (!gcalState.connected) connectGcal();
+  else syncGcal();
+}
+
 function renderGcalCard() {
   const el = document.getElementById('gcal-card');
   if (!el) return;
-  if (!gcalState.connected) {
-    el.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:16px">
-      <div><div style="color:var(--text);font-weight:600;font-size:14px">📅 Conectá Google Calendar</div><div style="color:var(--text-3);font-size:12px">Para basar el plan de la semana en tu agenda</div></div>
-      <button onclick="connectGcal()" style="background:var(--accent);color:#0a0a0a;border:none;border-radius:999px;padding:9px 16px;font-weight:700;font-size:14px;white-space:nowrap">Conectar</button>
-    </div>`;
-    return;
+  const last = gcalLastSync();
+  const synced = gcalState.connected && !!last;
+  let statusBadge, subline;
+  if (gcalState.loading) {
+    statusBadge = `<span style="color:var(--text-2);font-size:12px;font-weight:600">Sincronizando…</span>`;
+    subline = 'Trayendo tu agenda';
+  } else if (!gcalState.connected) {
+    statusBadge = `<span style="font-size:15px" title="Sin conectar">⚠️</span>`;
+    subline = 'No conectado · tocá para conectar';
+  } else if (!synced) {
+    statusBadge = `<span style="font-size:15px" title="Sin sincronizar">⚠️</span>`;
+    subline = 'Conectado · tocá para sincronizar';
+  } else {
+    statusBadge = `<span title="Sincronizado" style="width:11px;height:11px;border-radius:50%;background:var(--success);display:inline-block;flex:none;box-shadow:0 0 0 3px rgba(34,197,94,.18)"></span>`;
+    subline = `Última actualización: ${relTime(last)}`;
   }
-  const lbl = gcalState.loading ? 'Sincronizando…' : '↻ Sincronizar calendario';
-  el.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px">
-    <span style="color:var(--text-3);font-size:12px">📅 Google Calendar conectado</span>
-    <button onclick="syncGcal()" ${gcalState.loading ? 'disabled' : ''} style="background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:6px 14px;font-weight:600;font-size:12px;opacity:${gcalState.loading ? '.6' : '1'}">${lbl}</button>
-  </div>`;
+  const tile = (svg, w) => `<div style="width:34px;height:34px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);flex:none">${svg}</div>`;
+  el.innerHTML = `
+    <div onclick="gcalCardTap()" style="background:var(--surface);border:1px solid ${synced ? 'var(--border)' : 'var(--gold)'};border-radius:var(--radius);padding:14px;display:flex;align-items:center;gap:12px;cursor:pointer;margin-bottom:16px">
+      <div style="display:flex;gap:6px">${tile(LOGO_GCAL)}${tile(LOGO_GOOGLE)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="color:var(--text);font-weight:600;font-size:14px">Google Calendar</div>
+        <div style="color:var(--text-3);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${subline}</div>
+      </div>
+      ${statusBadge}
+    </div>`;
 }
 function connectGcal() {
   if (!currentSession) { toast('Iniciá sesión primero', true); return; }
@@ -2971,7 +3024,7 @@ async function syncGcal() {
   try {
     const { data, error } = await sb.functions.invoke('gcal-sync');
     if (error || (data && data.error)) { console.error('gcal-sync', error || data.error); toast('No se pudo sincronizar el calendario', true); }
-    else toast(`Calendario: ${data.workouts} entrenamientos de ${data.calendars} agendas`);
+    else { localStorage.setItem('hf_gcal_last_sync', new Date().toISOString()); toast(`Calendario: ${data.workouts} entrenamientos de ${data.calendars} agendas`); }
   } catch (e) { console.error(e); toast('No se pudo sincronizar el calendario', true); }
   finally { gcalState.loading = false; renderGcalCard(); }
 }
