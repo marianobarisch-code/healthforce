@@ -386,6 +386,7 @@
     </div>
   </button>
 
+  <div id="review-banner"></div>
   <div id="whoop-cards"></div>
   <div id="today-activities"></div>
   <div id="steps-card"></div>
@@ -1485,6 +1486,7 @@ function renderHome() {
   if (hour >= 19 || hour < 6) greeting = 'Buenas noches, Mariano';
   document.getElementById('home-greeting').textContent = greeting;
 
+  renderReviewBanner();
   renderWhoopDashboard();
   renderTodayActivities();
   renderStepsCard();
@@ -2951,6 +2953,70 @@ function nextDayStr(dateStr) {
   return dateToISO(d);
 }
 
+// ===== Verificación: actividad de Whoop sin cargar en HealthForce =====
+let whoopReview = { items: [] };
+function reviewDismissed() { return new Set(JSON.parse(localStorage.getItem('hf_review_dismissed') || '[]')); }
+function dismissReview(id) {
+  const s = reviewDismissed(); s.add(id);
+  localStorage.setItem('hf_review_dismissed', JSON.stringify([...s]));
+  whoopReview.items = whoopReview.items.filter(w => w.whoop_workout_id !== id);
+  renderReviewBanner();
+}
+function whoopMatchesType(sport, typeId) {
+  const hints = WHOOP_SPORT_HINTS[typeId] || [];
+  const s = (sport || '').toLowerCase();
+  return hints.some(h => s.includes(h));
+}
+function whoopLocalDate(iso) {
+  // start_at viene en UTC; lo paso a fecha local ART (UTC-3)
+  return new Date(new Date(iso).getTime() - 3 * 3600 * 1000).toISOString().slice(0, 10);
+}
+async function loadWhoopReview() {
+  whoopReview.items = [];
+  if (!currentSession || !whoopState.connected) return;
+  const since = (() => { const d = new Date(); d.setDate(d.getDate() - 6); return dateToISO(d); })();
+  try {
+    const { data } = await sb.from('whoop_workouts')
+      .select('whoop_workout_id, sport_name, start_at, duration_min, strain')
+      .eq('user_id', currentSession.user.id)
+      .gte('start_at', `${since}T00:00:00-03:00`)
+      .order('start_at', { ascending: false });
+    const dism = reviewDismissed();
+    const hf = loadWorkouts();
+    whoopReview.items = (data || []).filter(w => {
+      if (dism.has(w.whoop_workout_id)) return false;
+      // Solo sesiones "reales": strain alto o duración significativa (descarta caminatas/ruido)
+      if (!((w.strain || 0) >= 8 || (w.duration_min || 0) >= 40)) return false;
+      const date = whoopLocalDate(w.start_at);
+      const hfThatDay = hf.filter(x => x.date === date);
+      return !hfThatDay.some(x => whoopMatchesType(w.sport_name, x.type_id));
+    }).map(w => ({ ...w, date: whoopLocalDate(w.start_at) }));
+  } catch (e) { console.warn('review load', e); }
+}
+function renderReviewBanner() {
+  const el = document.getElementById('review-banner');
+  if (!el) return;
+  const items = whoopReview.items || [];
+  if (!items.length) { el.innerHTML = ''; return; }
+  const rows = items.map(w => {
+    const dt = new Date(w.date + 'T00:00:00').toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' });
+    const sport = (w.sport_name || 'actividad').replace(/_/g, ' ');
+    return `<div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--border)">
+      <div style="flex:1;min-width:0">
+        <div style="color:var(--text);font-size:14px;font-weight:600;text-transform:capitalize">${sport} · ${dt}</div>
+        <div style="color:var(--text-3);font-size:12px">Whoop lo registró${w.strain != null ? ' · strain ' + w.strain.toFixed(1) : ''}${w.duration_min ? ' · ' + w.duration_min + 'm' : ''} · sin cargar</div>
+      </div>
+      <button onclick="openAssignDayModal('${w.date}')" style="background:var(--accent);color:#0a0a0a;border:none;border-radius:999px;padding:7px 12px;font-weight:700;font-size:12px;white-space:nowrap">Cargar</button>
+      <button onclick="dismissReview('${w.whoop_workout_id}')" title="Ya está / ignorar" style="background:none;border:none;color:var(--text-3);font-size:20px;line-height:1;padding:0 4px">×</button>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div style="background:var(--surface);border:1px solid var(--gold);border-radius:var(--radius);padding:12px 14px;margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:8px;color:var(--gold);font-weight:700;font-size:13px"><span>⚠️</span> Tenés ${items.length} por revisar</div>
+    <div style="color:var(--text-3);font-size:12px;margin-top:2px">Whoop detectó actividad que no figura cargada en HealthForce.</div>
+    ${rows}
+  </div>`;
+}
+
 // Muestra el esfuerzo real de Whoop para la sesión abierta (strain, FC, kcal, etc.)
 async function renderSessionWhoopEffort(typeId, dateStr) {
   const content = document.getElementById('day-content');
@@ -3024,7 +3090,9 @@ async function syncWhoop() {
     } else {
       toast(`Whoop: recovery ${data.recovery} · strain ${data.cycles} · sleep ${data.sleep}`);
       await loadWhoopState();
+      await loadWhoopReview();
       renderTodayActivities();
+      renderReviewBanner();
     }
   } catch (e) {
     console.error(e);
@@ -3044,7 +3112,9 @@ async function refreshWhoopOnResume() {
   whoopRefreshInFlight = true;
   try {
     await loadWhoopState();
+    await loadWhoopReview();
     renderWhoopDashboard();
+    renderReviewBanner();
   } finally {
     whoopRefreshInFlight = false;
   }
@@ -3073,6 +3143,7 @@ async function init() {
     await syncFromServer();
     await retryPendingSyncs();
     await loadWhoopState();
+    await loadWhoopReview();
     renderHome();
     handleWhoopReturn();
     maybeOfferSetPassword();
@@ -3086,6 +3157,7 @@ async function init() {
       await syncFromServer();
       await retryPendingSyncs();
       await loadWhoopState();
+      await loadWhoopReview();
       renderHome();
       handleWhoopReturn();
       maybeOfferSetPassword();
