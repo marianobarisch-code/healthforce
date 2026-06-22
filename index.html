@@ -386,7 +386,9 @@
     </div>
   </button>
 
-  <div id="whoop-card"></div>
+  <div id="whoop-cards"></div>
+  <div id="today-activities"></div>
+  <div id="steps-card"></div>
 
   <div class="week-section-label" id="week-section-label">Esta semana</div>
   <div class="week-day-cards" id="week-day-cards"></div>
@@ -1483,7 +1485,9 @@ function renderHome() {
   if (hour >= 19 || hour < 6) greeting = 'Buenas noches, Mariano';
   document.getElementById('home-greeting').textContent = greeting;
 
-  renderWhoopCard();
+  renderWhoopDashboard();
+  renderTodayActivities();
+  renderStepsCard();
   renderMuscleWeekDashboard();
 
   // Build smart week plan
@@ -2757,7 +2761,7 @@ function toast(msg, isError) {
 
 // ===== Integración WHOOP =====
 const WHOOP_FN_BASE = SUPABASE_URL + '/functions/v1';
-let whoopState = { connected: false, recovery: null, loading: false };
+let whoopState = { connected: false, recovery: null, strain: null, sleep: null, loading: false };
 
 function recoveryColor(score) {
   if (score == null) return 'var(--text-2)';
@@ -2765,25 +2769,49 @@ function recoveryColor(score) {
   if (score >= 34) return 'var(--gold)';
   return 'var(--danger)';
 }
+function sleepColor(p) {
+  if (p == null) return 'var(--text-2)';
+  if (p >= 70) return 'var(--success)';
+  if (p >= 50) return 'var(--gold)';
+  return 'var(--danger)';
+}
+function whoopDate(d) {
+  return d ? new Date(d + 'T00:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }) : '—';
+}
 
 async function loadWhoopState() {
   if (!currentSession) return;
   const uid = currentSession.user.id;
   try {
-    const [{ data: conn }, { data: rec }] = await Promise.all([
-      sb.from('whoop_connections').select('user_id, updated_at').eq('user_id', uid).maybeSingle(),
+    const [{ data: conn }, { data: rec }, { data: cyc }, { data: slp }] = await Promise.all([
+      sb.from('whoop_connections').select('user_id').eq('user_id', uid).maybeSingle(),
       sb.from('whoop_recovery').select('date, recovery_score, hrv_rmssd, resting_hr')
         .eq('user_id', uid).order('date', { ascending: false }).limit(1).maybeSingle(),
+      sb.from('whoop_cycles').select('date, day_strain, avg_hr, max_hr')
+        .eq('user_id', uid).order('date', { ascending: false }).limit(1).maybeSingle(),
+      sb.from('whoop_sleep').select('date, performance_pct, light_min, rem_min, slow_wave_min, total_in_bed_min')
+        .eq('user_id', uid).eq('is_nap', false).order('date', { ascending: false }).limit(1).maybeSingle(),
     ]);
     whoopState.connected = !!conn;
     whoopState.recovery = rec || null;
+    whoopState.strain = cyc || null;
+    whoopState.sleep = slp || null;
   } catch (e) {
     console.warn('whoop state load failed', e);
   }
 }
 
-function renderWhoopCard() {
-  const el = document.getElementById('whoop-card');
+// Una de las 3 cards de Whoop (Strain / Sleep / Recovery)
+function whoopMiniCard(label, valueHTML, sub, color) {
+  return `<div style="flex:1;min-width:0;background:var(--surface);border:1px solid var(--border);border-top:3px solid ${color};border-radius:var(--radius-sm);padding:12px 8px;text-align:center">
+    <div style="color:var(--text-3);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">${label}</div>
+    <div style="font-size:26px;font-weight:800;color:${color};line-height:1.1;margin-top:4px">${valueHTML}</div>
+    <div style="color:var(--text-3);font-size:10px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sub}</div>
+  </div>`;
+}
+
+function renderWhoopDashboard() {
+  const el = document.getElementById('whoop-cards');
   if (!el) return;
   const wlogo = '<span style="font-weight:800;letter-spacing:.5px;color:var(--text-2);font-size:12px">WHOOP</span>';
 
@@ -2791,30 +2819,112 @@ function renderWhoopCard() {
     el.innerHTML = `
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
         <div>${wlogo}<div style="color:var(--text);font-weight:600;margin-top:2px">Conectá tu Whoop</div>
-        <div style="color:var(--text-3);font-size:12px">Recovery y cardio automáticos</div></div>
+        <div style="color:var(--text-3);font-size:12px">Recovery, strain y sueño automáticos</div></div>
         <button onclick="connectWhoop()" style="background:var(--accent);color:#0a0a0a;border:none;border-radius:999px;padding:10px 16px;font-weight:700;font-size:14px;white-space:nowrap">Conectar</button>
       </div>`;
     return;
   }
 
+  const syncLabel = whoopState.loading ? 'Sincronizando…' : '↻ Sincronizar';
+
+  // Strain (cycle)
+  const cyc = whoopState.strain;
+  const strainColor = 'var(--accent-2)';
+  const strainCard = whoopMiniCard('Strain',
+    cyc && cyc.day_strain != null ? cyc.day_strain.toFixed(1) : '—',
+    cyc ? whoopDate(cyc.date) : 'sin datos', strainColor);
+
+  // Sleep
+  const slp = whoopState.sleep;
+  const sleepP = slp ? slp.performance_pct : null;
+  const sColor = sleepColor(sleepP);
+  let sleepSub = 'sin datos';
+  if (slp) {
+    const asleep = (slp.light_min || 0) + (slp.rem_min || 0) + (slp.slow_wave_min || 0);
+    sleepSub = `${Math.floor(asleep / 60)}h ${asleep % 60}m`;
+  }
+  const sleepCard = whoopMiniCard('Sleep',
+    sleepP != null ? `${Math.round(sleepP)}<span style="font-size:13px;color:var(--text-3)">%</span>` : '—',
+    sleepSub, sColor);
+
+  // Recovery
   const rec = whoopState.recovery;
-  const score = rec ? rec.recovery_score : null;
-  const color = recoveryColor(score);
-  const dateTxt = rec ? new Date(rec.date + 'T00:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }) : '—';
-  const syncLabel = whoopState.loading ? 'Sincronizando…' : 'Sincronizar';
-  const scoreHTML = score != null
-    ? `<div style="font-size:32px;font-weight:800;color:${color};line-height:1">${Math.round(score)}<span style="font-size:14px;color:var(--text-3)">%</span></div>`
-    : `<div style="font-size:15px;color:var(--text-2)">Sin datos aún</div>`;
-  const sub = rec
-    ? `Recovery · ${dateTxt}${rec.hrv_rmssd != null ? ' · HRV ' + Math.round(rec.hrv_rmssd) + 'ms' : ''}${rec.resting_hr != null ? ' · FC rep ' + Math.round(rec.resting_hr) : ''}`
-    : 'Tocá Sincronizar para traer tus datos';
+  const rScore = rec ? rec.recovery_score : null;
+  const rColor = recoveryColor(rScore);
+  const recSub = rec && rec.hrv_rmssd != null ? `HRV ${Math.round(rec.hrv_rmssd)}ms` : (rec ? whoopDate(rec.date) : 'sin datos');
+  const recCard = whoopMiniCard('Recovery',
+    rScore != null ? `${Math.round(rScore)}<span style="font-size:13px;color:var(--text-3)">%</span>` : '—',
+    recSub, rColor);
 
   el.innerHTML = `
-    <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid ${color};border-radius:var(--radius);padding:16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
-      <div style="min-width:0">${wlogo}<div style="display:flex;align-items:baseline;gap:6px;margin-top:2px">${scoreHTML}</div>
-      <div style="color:var(--text-3);font-size:12px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sub}</div></div>
-      <button onclick="syncWhoop()" ${whoopState.loading ? 'disabled' : ''} style="background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:10px 16px;font-weight:600;font-size:13px;white-space:nowrap;opacity:${whoopState.loading ? '.6' : '1'}">${syncLabel}</button>
-    </div>`;
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      ${wlogo}
+      <button onclick="syncWhoop()" ${whoopState.loading ? 'disabled' : ''} style="background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:6px 14px;font-weight:600;font-size:12px;opacity:${whoopState.loading ? '.6' : '1'}">${syncLabel}</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">${strainCard}${sleepCard}${recCard}</div>`;
+}
+
+// Actividades ya realizadas hoy (del log de la app)
+function renderTodayActivities() {
+  const el = document.getElementById('today-activities');
+  if (!el) return;
+  const acts = actualForDate(todayStr());
+  const ICONS = { strength: '🏋️', cardio_intervals: '⚡', cardio_steady: '🏃', sport: '🎾', mobility: '🧘', rest: '😴' };
+  let inner;
+  if (!acts.length) {
+    inner = `<div style="color:var(--text-3);font-size:13px;padding:8px 0">Todavía no registraste actividad hoy</div>`;
+  } else {
+    inner = acts.map((a, i) => `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;${i < acts.length - 1 ? 'border-bottom:1px solid var(--border)' : ''}">
+      <span style="font-size:18px">${ICONS[a.category] || '✅'}</span>
+      <span style="color:var(--text);font-size:14px;font-weight:600">${a.name}</span>
+      <span style="margin-left:auto;color:var(--success);font-size:12px;font-weight:600">✓ hecho</span></div>`).join('');
+  }
+  el.innerHTML = `<div style="margin-bottom:16px">
+    <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Actividad de hoy</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:4px 14px">${inner}</div>
+  </div>`;
+}
+
+// Pasos del día (carga manual — Whoop no expone pasos por API)
+let stepsEditing = false;
+function stepsKey() { return 'hf_steps_' + todayStr(); }
+function getSteps() { return parseInt(localStorage.getItem(stepsKey()) || '0', 10) || 0; }
+function editSteps() { stepsEditing = true; renderStepsCard(); const i = document.getElementById('steps-input'); if (i) { i.focus(); i.select(); } }
+function saveSteps() {
+  const i = document.getElementById('steps-input');
+  const v = Math.max(0, parseInt(i ? i.value : '0', 10) || 0);
+  localStorage.setItem(stepsKey(), String(v));
+  stepsEditing = false;
+  renderStepsCard();
+}
+
+function renderStepsCard() {
+  const el = document.getElementById('steps-card');
+  if (!el) return;
+  const goal = 10000, per = 1000, steps = getSteps();
+  const remaining = Math.max(0, goal - steps);
+  let squares = '';
+  for (let i = 0; i < 10; i++) {
+    let bg;
+    if (steps >= (i + 1) * per) bg = 'var(--accent)';
+    else if (steps > i * per) { const pct = ((steps - i * per) / per) * 100; bg = `linear-gradient(90deg, var(--accent) ${pct}%, var(--surface-2) ${pct}%)`; }
+    else bg = 'var(--surface-2)';
+    squares += `<div style="flex:1;height:16px;border-radius:4px;background:${bg};border:1px solid var(--border)"></div>`;
+  }
+  const body = stepsEditing
+    ? `<div style="display:flex;gap:8px;margin-top:2px"><input id="steps-input" type="number" inputmode="numeric" value="${steps}" style="flex:1;min-width:0;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:10px;font-size:16px"><button onclick="saveSteps()" style="background:var(--accent);color:#0a0a0a;border:none;border-radius:10px;padding:0 16px;font-weight:700">Guardar</button></div>`
+    : `<div style="display:flex;align-items:baseline;gap:8px;margin-top:2px"><span style="font-size:30px;font-weight:800;color:var(--text)">${steps.toLocaleString('es-AR')}</span><span style="color:var(--text-3);font-size:13px">/ ${goal.toLocaleString('es-AR')} pasos</span></div>
+       <div style="color:${remaining > 0 ? 'var(--text-3)' : 'var(--success)'};font-size:12px;margin-top:2px">${remaining > 0 ? 'Faltan ' + remaining.toLocaleString('es-AR') + ' para la meta' : 'Meta cumplida 🎉'}</div>`;
+  el.innerHTML = `<div style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <span style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Pasos de hoy</span>
+      ${stepsEditing ? '' : `<button onclick="editSteps()" style="background:none;border:none;color:var(--accent-2);font-size:13px;font-weight:600;cursor:pointer">Editar</button>`}
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
+      ${body}
+      <div style="display:flex;gap:4px;margin-top:12px">${squares}</div>
+    </div>
+  </div>`;
 }
 
 function connectWhoop() {
@@ -2825,22 +2935,23 @@ function connectWhoop() {
 async function syncWhoop() {
   if (whoopState.loading) return;
   whoopState.loading = true;
-  renderWhoopCard();
+  renderWhoopDashboard();
   try {
     const { data, error } = await sb.functions.invoke('whoop-sync');
     if (error || (data && data.error)) {
       console.error('whoop-sync error', error || data.error);
       toast('No se pudo sincronizar Whoop', true);
     } else {
-      toast(`Whoop: ${data.recovery} recovery · ${data.workouts} workouts`);
+      toast(`Whoop: recovery ${data.recovery} · strain ${data.cycles} · sleep ${data.sleep}`);
       await loadWhoopState();
+      renderTodayActivities();
     }
   } catch (e) {
     console.error(e);
     toast('No se pudo sincronizar Whoop', true);
   } finally {
     whoopState.loading = false;
-    renderWhoopCard();
+    renderWhoopDashboard();
   }
 }
 
@@ -2853,7 +2964,7 @@ async function refreshWhoopOnResume() {
   whoopRefreshInFlight = true;
   try {
     await loadWhoopState();
-    renderWhoopCard();
+    renderWhoopDashboard();
   } finally {
     whoopRefreshInFlight = false;
   }
