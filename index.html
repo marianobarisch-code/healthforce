@@ -2848,6 +2848,25 @@ async function syncWhoop() {
   }
 }
 
+// Revalidar Whoop al volver a la app. En la PWA de iOS, al autorizar se abre
+// Safari y al volver iOS NO re-ejecuta init() (despierta la página congelada),
+// así que sin esto la tarjeta queda en "Conectar" aunque ya esté conectado.
+let whoopRefreshInFlight = false;
+async function refreshWhoopOnResume() {
+  if (!currentSession || whoopRefreshInFlight) return;
+  whoopRefreshInFlight = true;
+  try {
+    await loadWhoopState();
+    renderWhoopCard();
+  } finally {
+    whoopRefreshInFlight = false;
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') refreshWhoopOnResume();
+});
+window.addEventListener('pageshow', () => refreshWhoopOnResume());
+
 function handleWhoopReturn() {
   const params = new URLSearchParams(window.location.search);
   const w = params.get('whoop');
