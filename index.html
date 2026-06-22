@@ -1642,6 +1642,7 @@ function openDay(typeId, dateStr) {
   else if (typeId === 'z2') renderZ2Day(dateStr);
   else if (tpl.category === 'rest') renderRestDay(dateStr);
   else renderSimpleCardio(typeId, dateStr);
+  renderSessionWhoopEffort(typeId, dateStr);
 }
 
 function switchDayType(newTypeId) {
@@ -2929,6 +2930,86 @@ function renderStepsCard() {
 function connectWhoop() {
   if (!currentSession) { toast('Iniciá sesión primero', true); return; }
   window.location.href = `${WHOOP_FN_BASE}/whoop-auth-start?uid=${currentSession.user.id}`;
+}
+
+// Pistas de deporte Whoop por tipo de día (para emparejar el workout correcto)
+const WHOOP_SPORT_HINTS = {
+  z2: ['run'], sprints: ['run', 'interval', 'hiit'],
+  padel: ['padel', 'tennis', 'squash', 'racquet'],
+  natacion: ['swim'],
+  'upper-a': ['weight', 'strength', 'function', 'activity'],
+  'upper-b': ['weight', 'strength', 'function', 'activity'],
+  day3: ['weight', 'strength', 'function', 'activity'],
+  day1: ['weight', 'strength', 'function', 'activity'],
+  day2: ['weight', 'strength', 'function', 'activity'],
+  day4: ['weight', 'strength', 'function', 'activity'],
+};
+
+function nextDayStr(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + 1);
+  return dateToISO(d);
+}
+
+// Muestra el esfuerzo real de Whoop para la sesión abierta (strain, FC, kcal, etc.)
+async function renderSessionWhoopEffort(typeId, dateStr) {
+  const content = document.getElementById('day-content');
+  if (!content) return;
+  let holder = document.getElementById('session-whoop');
+  if (!holder) { holder = document.createElement('div'); holder.id = 'session-whoop'; content.insertBefore(holder, content.firstChild); }
+  holder.innerHTML = '';
+  if (!currentSession) return;
+
+  let rows = [];
+  try {
+    const { data } = await sb.from('whoop_workouts')
+      .select('sport_name, start_at, duration_min, strain, avg_hr, max_hr, kilojoule, distance_meter')
+      .eq('user_id', currentSession.user.id)
+      .gte('start_at', `${dateStr}T00:00:00-03:00`)
+      .lt('start_at', `${nextDayStr(dateStr)}T00:00:00-03:00`)
+      .order('duration_min', { ascending: false });
+    rows = data || [];
+  } catch (e) { console.warn('whoop effort load', e); return; }
+
+  const hasLoggedSession = !!workoutForTypeAndDate(typeId, dateStr);
+  if (!rows.length) {
+    if (hasLoggedSession) {
+      holder.innerHTML = `<div style="color:var(--text-3);font-size:12px;margin-bottom:14px;padding:10px 12px;border:1px dashed var(--border);border-radius:var(--radius-sm)">Sin datos de Whoop para este día. Tocá <b>Sincronizar</b> en el Home (Whoop puede tardar en procesar la sesión).</div>`;
+    }
+    return;
+  }
+
+  // Elegir el workout que mejor matchea el tipo de día; si no, el más largo
+  const hints = WHOOP_SPORT_HINTS[typeId] || [];
+  const matched = rows.find(w => {
+    const s = (w.sport_name || '').toLowerCase();
+    return hints.some(h => s.includes(h));
+  }) || rows[0];
+
+  const kcal = matched.kilojoule != null ? Math.round(matched.kilojoule / 4.184) : null;
+  const km = matched.distance_meter != null && matched.distance_meter > 0 ? (matched.distance_meter / 1000).toFixed(2) : null;
+  const metric = (label, val, color) => val == null || val === '' ? '' :
+    `<div style="text-align:center"><div style="font-size:20px;font-weight:800;color:${color || 'var(--text)'};line-height:1">${val}</div><div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.3px;margin-top:3px">${label}</div></div>`;
+
+  const metrics = [
+    metric('Strain', matched.strain != null ? matched.strain.toFixed(1) : null, 'var(--accent-2)'),
+    metric('FC media', matched.avg_hr != null ? Math.round(matched.avg_hr) : null),
+    metric('FC máx', matched.max_hr != null ? Math.round(matched.max_hr) : null),
+    metric('Calorías', kcal),
+    metric('Duración', matched.duration_min != null ? matched.duration_min + 'm' : null),
+    metric('Distancia', km != null ? km + ' km' : null),
+  ].filter(Boolean).join('');
+
+  const sportLabel = matched.sport_name ? matched.sport_name.replace(/_/g, ' ') : 'actividad';
+  const extra = rows.length > 1 ? ` · +${rows.length - 1} más ese día` : '';
+  holder.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent-2);border-radius:var(--radius);padding:14px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-weight:800;font-size:11px;letter-spacing:.5px;color:var(--text-2)">ESFUERZO · WHOOP</span>
+        <span style="font-size:11px;color:var(--text-3);text-transform:capitalize">${sportLabel}${extra}</span>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between">${metrics}</div>
+    </div>`;
 }
 
 async function syncWhoop() {
