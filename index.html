@@ -390,6 +390,7 @@
   <div id="whoop-cards"></div>
   <div id="today-activities"></div>
   <div id="steps-card"></div>
+  <div id="gcal-card"></div>
 
   <div class="week-section-label" id="week-section-label">Esta semana</div>
   <div class="week-day-cards" id="week-day-cards"></div>
@@ -1490,6 +1491,7 @@ function renderHome() {
   renderWhoopDashboard();
   renderTodayActivities();
   renderStepsCard();
+  renderGcalCard();
   renderMuscleWeekDashboard();
 
   // Build smart week plan
@@ -2934,6 +2936,46 @@ function connectWhoop() {
   window.location.href = `${WHOOP_FN_BASE}/whoop-auth-start?uid=${currentSession.user.id}`;
 }
 
+// ===== Google Calendar =====
+let gcalState = { connected: false, loading: false };
+async function loadGcalState() {
+  if (!currentSession) return;
+  try {
+    const { data } = await sb.from('gcal_connections').select('user_id').eq('user_id', currentSession.user.id).maybeSingle();
+    gcalState.connected = !!data;
+  } catch (e) { console.warn('gcal state', e); }
+}
+function renderGcalCard() {
+  const el = document.getElementById('gcal-card');
+  if (!el) return;
+  if (!gcalState.connected) {
+    el.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:16px">
+      <div><div style="color:var(--text);font-weight:600;font-size:14px">📅 Conectá Google Calendar</div><div style="color:var(--text-3);font-size:12px">Para basar el plan de la semana en tu agenda</div></div>
+      <button onclick="connectGcal()" style="background:var(--accent);color:#0a0a0a;border:none;border-radius:999px;padding:9px 16px;font-weight:700;font-size:14px;white-space:nowrap">Conectar</button>
+    </div>`;
+    return;
+  }
+  const lbl = gcalState.loading ? 'Sincronizando…' : '↻ Sincronizar calendario';
+  el.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px">
+    <span style="color:var(--text-3);font-size:12px">📅 Google Calendar conectado</span>
+    <button onclick="syncGcal()" ${gcalState.loading ? 'disabled' : ''} style="background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:6px 14px;font-weight:600;font-size:12px;opacity:${gcalState.loading ? '.6' : '1'}">${lbl}</button>
+  </div>`;
+}
+function connectGcal() {
+  if (!currentSession) { toast('Iniciá sesión primero', true); return; }
+  window.location.href = `${WHOOP_FN_BASE}/gcal-auth-start?uid=${currentSession.user.id}`;
+}
+async function syncGcal() {
+  if (gcalState.loading) return;
+  gcalState.loading = true; renderGcalCard();
+  try {
+    const { data, error } = await sb.functions.invoke('gcal-sync');
+    if (error || (data && data.error)) { console.error('gcal-sync', error || data.error); toast('No se pudo sincronizar el calendario', true); }
+    else toast(`Calendario: ${data.workouts} entrenamientos de ${data.calendars} agendas`);
+  } catch (e) { console.error(e); toast('No se pudo sincronizar el calendario', true); }
+  finally { gcalState.loading = false; renderGcalCard(); }
+}
+
 // Pistas de deporte Whoop por tipo de día (para emparejar el workout correcto)
 const WHOOP_SPORT_HINTS = {
   z2: ['run'], sprints: ['run', 'interval', 'hiit'],
@@ -3127,9 +3169,12 @@ window.addEventListener('pageshow', () => refreshWhoopOnResume());
 function handleWhoopReturn() {
   const params = new URLSearchParams(window.location.search);
   const w = params.get('whoop');
-  if (!w) return;
+  const g = params.get('gcal');
+  if (!w && !g) return;
   if (w === 'connected') toast('Whoop conectado ✓');
   else if (w === 'error') toast('Error al conectar Whoop', true);
+  if (g === 'connected') { toast('Google Calendar conectado ✓'); loadGcalState().then(renderGcalCard); }
+  else if (g === 'error') toast('Error al conectar Google Calendar', true);
   // limpiar la query para que no reaparezca el toast al recargar
   const clean = window.location.pathname + window.location.hash;
   window.history.replaceState({}, '', clean);
@@ -3144,6 +3189,7 @@ async function init() {
     await retryPendingSyncs();
     await loadWhoopState();
     await loadWhoopReview();
+    await loadGcalState();
     renderHome();
     handleWhoopReturn();
     maybeOfferSetPassword();
@@ -3158,6 +3204,7 @@ async function init() {
       await retryPendingSyncs();
       await loadWhoopState();
       await loadWhoopReview();
+      await loadGcalState();
       renderHome();
       handleWhoopReturn();
       maybeOfferSetPassword();
