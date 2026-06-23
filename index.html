@@ -379,6 +379,8 @@
     </div>
   </div>
 
+  <div id="home-streak"></div>
+
   <button class="log-training-hero" onclick="showLogTrainingModal()">
     <div class="log-training-hero-icon">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -1500,6 +1502,7 @@ function renderHome() {
   if (hour >= 19 || hour < 6) greeting = 'Buenas noches, Mariano';
   document.getElementById('home-greeting').textContent = greeting;
 
+  renderHomeStreak();
   renderReviewBanner();
   renderWhoopDashboard();
   renderTodayActivities();
@@ -2554,7 +2557,7 @@ function renderInsights() {
   };
   const borderColors = { green: 'var(--success)', yellow: '#facc15', red: 'var(--danger)', info: 'var(--border)' };
 
-  el.innerHTML = insights.map(ins => `
+  el.innerHTML = gamificationHTML() + insights.map(ins => `
     <div class="insight-card" style="border-left-color:${borderColors[ins.type] || 'var(--border)'};">
       <div class="insight-header">
         ${icons[ins.type] || icons.info}
@@ -2723,6 +2726,105 @@ function computeStreak(workouts) {
     d.setDate(d.getDate() - 1);
   }
   return streak;
+}
+
+// ===== Gamificación: racha semanal + objetivos =====
+const STREAK_WEEK_GOAL = 4;  // días/semana para que una semana "cuente" en la racha
+const STEPS_GOAL = 10000;
+
+function weekStartOf(date) { const d = getWeekStart(date); d.setHours(0, 0, 0, 0); return d; }
+function trainingDaysInRange(start, end) {
+  const dates = new Set();
+  loadWorkouts().forEach(w => {
+    const tpl = DAY_TEMPLATES.find(t => t.type_id === w.type_id);
+    if (tpl && tpl.category === 'rest') return; // descanso no cuenta como día entrenado
+    const d = new Date(w.date + 'T12:00:00');
+    if (d >= start && d < end) dates.add(w.date);
+  });
+  return dates.size;
+}
+function trainingDaysInWeek(ws) { const e = new Date(ws); e.setDate(e.getDate() + 7); return trainingDaysInRange(ws, e); }
+function computeWeeklyStreak(goal) {
+  let streak = 0, ws = weekStartOf(new Date());
+  for (let i = 0; i < 104; i++) {
+    const days = trainingDaysInWeek(ws);
+    if (i === 0) { if (days >= goal) streak++; }       // semana actual: cuenta solo si ya la cumplió
+    else { if (days >= goal) streak++; else break; }     // semanas pasadas: corta al primer fallo
+    ws = new Date(ws); ws.setDate(ws.getDate() - 7);
+  }
+  return streak;
+}
+function trainingDaysThisMonth() {
+  const now = new Date();
+  return trainingDaysInRange(new Date(now.getFullYear(), now.getMonth(), 1), new Date(now.getFullYear(), now.getMonth() + 1, 1));
+}
+function cardioMinutesThisMonth() {
+  const now = new Date(); const y = now.getFullYear(), m = now.getMonth(); let mins = 0;
+  loadWorkouts().forEach(w => {
+    const tpl = DAY_TEMPLATES.find(t => t.type_id === w.type_id);
+    if (!tpl || !['cardio_steady', 'cardio_intervals', 'sport'].includes(tpl.category)) return;
+    const d = new Date(w.date + 'T12:00:00');
+    if (d.getFullYear() === y && d.getMonth() === m) mins += parseFloat(w.duration) || 0;
+  });
+  return Math.round(mins);
+}
+function stepDaysThisWeek() {
+  const ws = weekStartOf(new Date()); let n = 0;
+  for (let i = 0; i < 7; i++) { const d = new Date(ws); d.setDate(d.getDate() + i); if ((parseInt(localStorage.getItem('hf_steps_' + dateToISO(d)) || '0', 10) || 0) >= STEPS_GOAL) n++; }
+  return n;
+}
+function computeObjectives() {
+  return [
+    { icon: '🗓️', title: 'Semana en marcha', sub: 'Entrená 5 días esta semana', cur: trainingDaysInWeek(weekStartOf(new Date())), goal: 5, unit: 'días' },
+    { icon: '🔥', title: 'Racha semanal', sub: `Semanas seguidas con ${STREAK_WEEK_GOAL}+ entrenos`, cur: computeWeeklyStreak(STREAK_WEEK_GOAL), goal: 4, unit: 'sem' },
+    { icon: '🏃', title: 'Motor aeróbico', sub: 'Cardio acumulado este mes', cur: cardioMinutesThisMonth(), goal: 120, unit: 'min' },
+    { icon: '👟', title: 'Pasos firmes', sub: 'Días de 10.000 pasos esta semana', cur: stepDaysThisWeek(), goal: 5, unit: 'días' },
+    { icon: '📅', title: 'Mes consistente', sub: 'Entrenos en el mes', cur: trainingDaysThisMonth(), goal: 16, unit: 'días' },
+  ];
+}
+function streakMessage(s) {
+  if (s === 0) return 'Arrancá tu primera semana 💪';
+  if (s === 1) return '¡Primera semana lista! No la cortes 🔥';
+  if (s < 4) return 'Vas tomando ritmo 🔥';
+  if (s < 8) return 'Racha sólida 🔥🔥';
+  return 'Imparable 🔥🔥🔥';
+}
+function gamificationHTML() {
+  const wk = computeWeeklyStreak(STREAK_WEEK_GOAL);
+  const daysWeek = trainingDaysInWeek(weekStartOf(new Date()));
+  const objCards = computeObjectives().map(o => {
+    const pct = Math.min(100, Math.round(o.cur / o.goal * 100));
+    const done = o.cur >= o.goal;
+    return `<div style="background:var(--surface);border:1px solid ${done ? 'var(--success)' : 'var(--border)'};border-radius:var(--radius);padding:12px 14px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="font-size:20px">${o.icon}</span>
+        <div style="flex:1;min-width:0"><div style="color:var(--text);font-weight:600;font-size:14px">${o.title}${done ? ' <span style="color:var(--success)">✓</span>' : ''}</div>
+          <div style="color:var(--text-3);font-size:12px">${o.sub}</div></div>
+        <div style="color:${done ? 'var(--success)' : 'var(--text-2)'};font-weight:800;font-size:14px;white-space:nowrap">${o.cur}/${o.goal} ${o.unit}</div>
+      </div>
+      <div style="height:8px;border-radius:5px;background:var(--surface-2);overflow:hidden"><div style="height:100%;width:${pct}%;background:${done ? 'var(--success)' : 'var(--accent)'};border-radius:5px"></div></div>
+    </div>`;
+  }).join('');
+  return `
+    <div style="background:linear-gradient(135deg, rgba(212,255,61,.13), rgba(197,181,245,.13));border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;margin-bottom:18px;text-align:center">
+      <div style="font-size:38px;line-height:1">🔥</div>
+      <div style="font-size:34px;font-weight:800;color:var(--text);line-height:1.1">${wk}</div>
+      <div style="color:var(--text-2);font-size:13px;font-weight:600">${wk === 1 ? 'semana de racha' : 'semanas de racha'}</div>
+      <div style="color:var(--text-3);font-size:12px;margin-top:6px">${streakMessage(wk)}</div>
+      <div style="color:var(--text-3);font-size:12px;margin-top:8px">Esta semana: <b style="color:var(--accent)">${daysWeek}</b> ${daysWeek === 1 ? 'día entrenado' : 'días entrenados'} de 5</div>
+    </div>
+    <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Objetivos</div>
+    ${objCards}
+    <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin:20px 0 10px">Análisis</div>
+  `;
+}
+function renderHomeStreak() {
+  const el = document.getElementById('home-streak');
+  if (!el) return;
+  const wk = computeWeeklyStreak(STREAK_WEEK_GOAL);
+  if (wk < 1) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div onclick="showScreen('insights')" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--gold);border-radius:999px;padding:5px 12px;margin-bottom:14px;cursor:pointer">
+    <span style="font-size:15px">🔥</span><span style="color:var(--text);font-weight:700;font-size:13px">${wk} ${wk === 1 ? 'semana' : 'semanas'} de racha</span></div>`;
 }
 
 function renderVolumeChart(workouts) {
