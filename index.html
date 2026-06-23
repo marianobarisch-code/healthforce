@@ -3029,6 +3029,29 @@ async function syncGcal() {
   finally { gcalState.loading = false; renderGcalCard(); }
 }
 
+// Auto-sincronización al abrir / volver a la app (Whoop + Google Calendar).
+// Throttle para no spamear en cambios rápidos de pestaña.
+let autoSyncInFlight = false;
+async function autoSyncIntegrations(minIntervalMin = 3) {
+  if (autoSyncInFlight || !currentSession) return;
+  if (!whoopState.connected && !gcalState.connected) return;
+  const last = +(localStorage.getItem('hf_last_autosync') || 0);
+  if (Date.now() - last < minIntervalMin * 60000) return;
+  autoSyncInFlight = true;
+  localStorage.setItem('hf_last_autosync', String(Date.now()));
+  try {
+    const jobs = [];
+    if (whoopState.connected) jobs.push(sb.functions.invoke('whoop-sync').catch(e => console.warn('autosync whoop', e)));
+    if (gcalState.connected) jobs.push(
+      sb.functions.invoke('gcal-sync').then(r => { if (r && r.data && !r.data.error) localStorage.setItem('hf_gcal_last_sync', new Date().toISOString()); }).catch(e => console.warn('autosync gcal', e))
+    );
+    if (!jobs.length) return;
+    await Promise.all(jobs);
+    await loadWhoopState(); await loadWhoopReview(); await loadGcalState();
+    renderReviewBanner(); renderWhoopDashboard(); renderTodayActivities(); renderGcalCard();
+  } finally { autoSyncInFlight = false; }
+}
+
 // Pistas de deporte Whoop por tipo de día (para emparejar el workout correcto)
 const WHOOP_SPORT_HINTS = {
   z2: ['run'], sprints: ['run', 'interval', 'hiit'],
@@ -3210,6 +3233,7 @@ async function refreshWhoopOnResume() {
     await loadWhoopReview();
     renderWhoopDashboard();
     renderReviewBanner();
+    autoSyncIntegrations();
   } finally {
     whoopRefreshInFlight = false;
   }
@@ -3246,6 +3270,7 @@ async function init() {
     renderHome();
     handleWhoopReturn();
     maybeOfferSetPassword();
+    autoSyncIntegrations();
   } else {
     showLoginScreen();
   }
@@ -3261,6 +3286,7 @@ async function init() {
       renderHome();
       handleWhoopReturn();
       maybeOfferSetPassword();
+      autoSyncIntegrations();
     } else if (!newSession && currentSession) {
       currentSession = null;
       showLoginScreen();
