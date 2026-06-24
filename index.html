@@ -395,6 +395,7 @@
   <div id="whoop-cards"></div>
   <div id="today-activities"></div>
   <div id="steps-card"></div>
+  <div id="nutrition-card"></div>
 
   <div class="week-section-label" id="week-section-label">Esta semana</div>
   <div class="week-day-cards" id="week-day-cards"></div>
@@ -474,6 +475,10 @@
 </nav>
 
 <div class="sync-indicator" id="sync-indicator"><span class="dot"></span> Sincronizando…</div>
+
+<div class="modal-overlay" id="modal-add-meal" onclick="if(event.target===this)closeAddMeal()">
+  <div class="modal" id="add-meal-body"></div>
+</div>
 
 <div class="modal-overlay" id="modal-set-password">
   <div class="modal">
@@ -1507,6 +1512,7 @@ function renderHome() {
   renderWhoopDashboard();
   renderTodayActivities();
   renderStepsCard();
+  renderNutritionCard();
   renderMuscleWeekDashboard();
 
   // Build smart week plan
@@ -3043,6 +3049,139 @@ function renderStepsCard() {
       <div style="display:flex;gap:4px;margin-top:12px">${squares}</div>
     </div>
   </div>`;
+}
+
+// ===== Nutrición (Fase 1 — localStorage por día) =====
+const NUT_PROT = {
+  'Pechuga de pollo':[165,31,0,4], 'Muslo (pata-muslo)':[175,27,0,7],
+  'Colita de cuadril':[210,29,0,10], 'Entraña':[260,27,0,17], 'Picaña':[290,25,0,21],
+  'Carne picada magra':[190,27,0,9], 'Trucha':[170,26,0,7], 'Salmón':[210,23,0,13],
+  'Merluza':[95,21,0,1], 'Atún al natural':[110,25,0,1]
+};
+const NUT_CARB = {
+  'Arroz blanco':[130,2.7,28,0.3], 'Papa':[87,2,20,0.1], 'Batata':[90,1.5,21,0.1],
+  'Fideos':[158,6,31,1], 'Avena (seca)':[389,17,66,7], 'Sin carbo':[0,0,0,0]
+};
+const NUT_VEG = {
+  'Ensalada mixta':[40,2,6,1], 'Verduras salteadas':[70,3,10,2], 'Brócoli':[40,3,7,0],
+  'Portobello':[33,3,6,0], 'Tomate / pepino':[30,1,6,0], 'Sin verdura':[0,0,0,0]
+};
+const NUT_QUICK = [
+  {n:'Yogur griego + proteína', m:[220,40,9,2]},
+  {n:'Burrito proteico', m:[300,25,30,10]},
+  {n:'2 huevos + pan', m:[304,20,29,12]},
+  {n:'Avena (80g) + banana', m:[416,14,80,6]}
+];
+const PROT_GOAL = 190, KCAL_GOAL = 3000;
+let mealType = 'Snack';
+
+function mealsKey() { return 'hf_meals_' + todayStr(); }
+function getMeals() { try { return JSON.parse(localStorage.getItem(mealsKey()) || '[]'); } catch (e) { return []; } }
+function setMealsLS(a) { localStorage.setItem(mealsKey(), JSON.stringify(a)); }
+function nutTotals(a) { const t = [0,0,0,0]; (a || []).forEach(x => { for (let i = 0; i < 4; i++) t[i] += x.m[i]; }); return t.map(Math.round); }
+
+function renderNutritionCard() {
+  const el = document.getElementById('nutrition-card'); if (!el) return;
+  const meals = getMeals(), T = nutTotals(meals);
+  const pct = Math.min(100, Math.round((T[1] / PROT_GOAL) * 100));
+  const rows = meals.length ? meals.map((x, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--border)">
+      <div style="min-width:0;flex:1">
+        <div style="color:var(--text-3);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">${x.t}</div>
+        <div style="color:var(--text);font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.n}</div>
+      </div>
+      <div style="text-align:right"><div style="color:var(--accent);font-weight:700;font-size:14px">${x.m[1]} P</div><div style="color:var(--text-3);font-size:11px">${x.m[0]} kcal</div></div>
+      <button onclick="deleteMeal(${i})" style="background:none;border:none;color:var(--text-3);font-size:18px;line-height:1;padding:0 2px;cursor:pointer">×</button>
+    </div>`).join('') : `<div style="color:var(--text-3);font-size:13px;padding:10px 0;border-top:1px solid var(--border)">Todavía no cargaste comidas hoy</div>`;
+  el.innerHTML = `<div style="margin-bottom:16px">
+    <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Nutrición de hoy</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
+        <span style="color:var(--text-3);font-size:13px">Proteína</span>
+        <span><span style="font-size:22px;font-weight:800;color:var(--accent)">${T[1]}</span><span style="color:var(--text-3);font-size:13px"> / ${PROT_GOAL} g</span></span>
+      </div>
+      <div style="height:10px;background:var(--surface-2);border-radius:6px;overflow:hidden;border:1px solid var(--border)"><div style="width:${pct}%;height:100%;background:var(--accent)"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;color:var(--text-3);font-size:12px">
+        <span>${T[0].toLocaleString('es-AR')} / ${KCAL_GOAL.toLocaleString('es-AR')} kcal</span>
+        <span>${T[2]} C · ${T[3]} G</span>
+      </div>
+      ${rows}
+      <button onclick="openAddMeal()" style="width:100%;margin-top:12px;background:var(--surface-2);color:var(--text);border:1px dashed var(--border);border-radius:12px;padding:11px;font-weight:700;font-size:14px;cursor:pointer">+ Add meal</button>
+    </div>
+  </div>`;
+}
+
+function deleteMeal(i) { const a = getMeals(); a.splice(i, 1); setMealsLS(a); renderNutritionCard(); }
+function openAddMeal() { mealType = 'Snack'; document.getElementById('modal-add-meal').classList.add('open'); renderAddMealBody(); }
+function closeAddMeal() { document.getElementById('modal-add-meal').classList.remove('open'); }
+function setMealType(t) {
+  mealType = t;
+  document.querySelectorAll('.meal-type-chip').forEach(c => {
+    const on = c.dataset.mt === t;
+    c.style.background = on ? 'var(--accent)' : 'var(--surface-2)';
+    c.style.color = on ? '#0a0a0a' : 'var(--text-2)';
+  });
+}
+
+function renderAddMealBody() {
+  const body = document.getElementById('add-meal-body'); if (!body) return;
+  const chips = ['Desayuno','Almuerzo','Cena','Snack'].map(t => {
+    const on = t === mealType;
+    return `<button class="meal-type-chip" data-mt="${t}" onclick="setMealType('${t}')" style="border:none;border-radius:999px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer;background:${on ? 'var(--accent)' : 'var(--surface-2)'};color:${on ? '#0a0a0a' : 'var(--text-2)'}">${t}</button>`;
+  }).join('');
+  const quick = NUT_QUICK.map((q, i) => `
+    <button onclick="addQuickMeal(${i})" style="text-align:left;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;cursor:pointer">
+      <div style="color:var(--text);font-weight:700;font-size:13px">${q.n}</div>
+      <div style="color:var(--text-3);font-size:11px">${q.m[0]} kcal · ${q.m[1]} P</div>
+    </button>`).join('');
+  const opts = (obj) => Object.keys(obj).map(k => `<option value="${k}">${k}</option>`).join('');
+  const selStyle = 'flex:1;min-width:0;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:10px;font-size:14px';
+  const gStyle = 'width:72px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:10px;font-size:14px;text-align:right';
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h2 style="margin:0">Agregar comida</h2>
+      <button onclick="closeAddMeal()" style="background:none;border:none;color:var(--text-3);font-size:26px;line-height:1;cursor:pointer">×</button>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px">${chips}</div>
+    <div style="color:var(--text-3);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Platos rápidos · 1 toque</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px">${quick}</div>
+    <div style="text-align:center;color:var(--text-3);font-size:12px;margin-bottom:14px">— o armá a medida —</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center"><select id="nm-prot" style="${selStyle}">${opts(NUT_PROT)}</select><input id="nm-protg" type="number" inputmode="numeric" value="200" style="${gStyle}"><span style="color:var(--text-3);font-size:13px">g</span></div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center"><select id="nm-carb" style="${selStyle}">${opts(NUT_CARB)}</select><input id="nm-carbg" type="number" inputmode="numeric" value="150" style="${gStyle}"><span style="color:var(--text-3);font-size:13px">g</span></div>
+    <div style="margin-bottom:14px"><select id="nm-veg" style="${selStyle};width:100%">${opts(NUT_VEG)}</select></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface-2);border-radius:12px;padding:11px 14px;margin-bottom:16px">
+      <span style="color:var(--text-3);font-size:12px">Esta comida</span>
+      <span id="nm-preview" style="color:var(--text);font-weight:700;font-size:13px">—</span>
+    </div>
+    <button onclick="saveCustomMeal()" style="width:100%;background:var(--accent);color:#0a0a0a;border:none;border-radius:12px;padding:13px;font-weight:800;font-size:15px;cursor:pointer">Guardar comida</button>`;
+  ['nm-prot','nm-protg','nm-carb','nm-carbg','nm-veg'].forEach(id => {
+    const e = document.getElementById(id);
+    e.addEventListener('input', nmPreview); e.addEventListener('change', nmPreview);
+  });
+  nmPreview();
+}
+
+function nmCalc() {
+  const p = NUT_PROT[document.getElementById('nm-prot').value], pg = parseFloat(document.getElementById('nm-protg').value) || 0;
+  const c = NUT_CARB[document.getElementById('nm-carb').value], cg = parseFloat(document.getElementById('nm-carbg').value) || 0;
+  const v = NUT_VEG[document.getElementById('nm-veg').value];
+  const t = [0,0,0,0];
+  for (let i = 0; i < 4; i++) t[i] = p[i] * pg / 100 + c[i] * cg / 100 + v[i];
+  return t.map(Math.round);
+}
+function nmPreview() { const t = nmCalc(); document.getElementById('nm-preview').textContent = `${t[0]} kcal · ${t[1]} P · ${t[2]} C · ${t[3]} G`; }
+function addQuickMeal(i) { const q = NUT_QUICK[i], a = getMeals(); a.push({ t: mealType, n: q.n, m: q.m.slice() }); setMealsLS(a); closeAddMeal(); renderNutritionCard(); }
+function saveCustomMeal() {
+  const pn = document.getElementById('nm-prot').value, pg = parseFloat(document.getElementById('nm-protg').value) || 0;
+  const cn = document.getElementById('nm-carb').value, cg = parseFloat(document.getElementById('nm-carbg').value) || 0;
+  const vn = document.getElementById('nm-veg').value;
+  const t = nmCalc();
+  const parts = [pn + ' ' + pg + ' g'];
+  if (cn !== 'Sin carbo' && cg > 0) parts.push(cn + ' ' + cg + ' g');
+  if (vn !== 'Sin verdura') parts.push(vn);
+  const a = getMeals();
+  a.push({ t: mealType, n: parts.join(' + '), m: t });
+  setMealsLS(a); closeAddMeal(); renderNutritionCard();
 }
 
 function connectWhoop() {
