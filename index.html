@@ -379,8 +379,15 @@
     </div>
   </div>
 
-  <div id="home-streak"></div>
+  <div id="review-banner"></div>
+  <div id="whoop-cards"></div>
+  <div id="today-activities"></div>
+  <div id="nutrition-summary"></div>
+  <div id="steps-card"></div>
+</section>
 
+<section class="screen" id="screen-training">
+  <div class="header"><h1>Training</h1></div>
   <button class="log-training-hero" onclick="showLogTrainingModal()">
     <div class="log-training-hero-icon">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -390,17 +397,14 @@
       <div class="log-training-hero-sub" id="log-training-hero-sub">Tocá para cargar un entrenamiento</div>
     </div>
   </button>
-
-  <div id="review-banner"></div>
-  <div id="whoop-cards"></div>
-  <div id="today-activities"></div>
-  <div id="steps-card"></div>
-  <div id="nutrition-card"></div>
-
   <div class="week-section-label" id="week-section-label">Esta semana</div>
   <div class="week-day-cards" id="week-day-cards"></div>
-
   <div id="muscle-week-dashboard"></div>
+</section>
+
+<section class="screen" id="screen-nutrition">
+  <div class="header"><h1>Nutrición</h1></div>
+  <div id="nutrition-card"></div>
 </section>
 
 <section class="screen" id="screen-day">
@@ -463,14 +467,14 @@
 </section>
 
 <nav class="nav" id="bottom-nav">
-  <button class="nav-btn active" data-screen="home" title="Inicio">
+  <button class="nav-btn active" data-screen="home" title="Home">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
   </button>
-  <button class="nav-btn" data-screen="analytics" title="Stats">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+  <button class="nav-btn" data-screen="training" title="Training">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 7v10M3 9v6M18 7v10M21 9v6M6 12h12"/></svg>
   </button>
-  <button class="nav-btn" data-screen="insights" title="Insights">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+  <button class="nav-btn" data-screen="nutrition" title="Nutrición">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="14" r="7"/><path d="M12 7c0-2 1-4 4-4"/></svg>
   </button>
 </nav>
 
@@ -1216,9 +1220,7 @@ function showScreen(name) {
   const navBtn = document.querySelector(`.nav-btn[data-screen="${name}"]`);
   if (navBtn) navBtn.classList.add('active');
   currentScreen = name;
-  if (name === 'home') renderHome();
-  if (name === 'analytics') renderAnalytics();
-  if (name === 'insights') renderInsights();
+  if (name === 'home' || name === 'training' || name === 'nutrition') renderHome();
   if (name === 'settings') renderSettings();
   window.scrollTo(0, 0);
 }
@@ -1507,11 +1509,11 @@ function renderHome() {
   if (hour >= 19 || hour < 6) greeting = 'Buenas noches, Mariano';
   document.getElementById('home-greeting').textContent = greeting;
 
-  renderHomeStreak();
   renderReviewBanner();
   renderWhoopDashboard();
   renderTodayActivities();
   renderStepsCard();
+  renderNutritionSummary();
   renderNutritionCard();
   renderMuscleWeekDashboard();
 
@@ -2951,57 +2953,84 @@ function renderWhoopDashboard() {
 
   const syncLabel = whoopState.loading ? 'Sincronizando…' : '↻ Sincronizar';
 
-  // Strain (cycle)
-  const cyc = whoopState.strain;
-  const strainColor = 'var(--accent-2)';
-  const strainCard = whoopMiniCard('Strain',
-    cyc && cyc.day_strain != null ? cyc.day_strain.toFixed(1) : '—',
-    cyc ? whoopDate(cyc.date) : 'sin datos', strainColor);
+  // Anillo circular reutilizable
+  const ring = (label, center, sub, frac, color) => {
+    const C = 213.6, off = C * (1 - Math.max(0, Math.min(1, frac || 0)));
+    return `<div style="flex:1;text-align:center;min-width:0">
+      <svg viewBox="0 0 80 80" style="width:76px;height:76px">
+        <circle cx="40" cy="40" r="34" fill="none" stroke="var(--surface-2)" stroke-width="7"/>
+        <circle cx="40" cy="40" r="34" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${off}" transform="rotate(-90 40 40)"/>
+        <text x="40" y="47" text-anchor="middle" font-size="19" font-weight="800" fill="var(--text)">${center}</text>
+      </svg>
+      <div style="color:var(--text-2);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-top:2px">${label}</div>
+      <div style="color:var(--text-3);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sub}</div>
+    </div>`;
+  };
 
-  // Sleep
+  const cyc = whoopState.strain;
+  const strainCard = ring('Strain',
+    cyc && cyc.day_strain != null ? cyc.day_strain.toFixed(1) : '—',
+    cyc ? whoopDate(cyc.date) : 'sin datos',
+    cyc && cyc.day_strain != null ? cyc.day_strain / 21 : 0, 'var(--accent-2)');
+
   const slp = whoopState.sleep;
   const sleepP = slp ? slp.performance_pct : null;
-  const sColor = sleepColor(sleepP);
   let sleepSub = 'sin datos';
   if (slp) {
     const asleep = (slp.light_min || 0) + (slp.rem_min || 0) + (slp.slow_wave_min || 0);
     sleepSub = `${Math.floor(asleep / 60)}h ${asleep % 60}m`;
   }
-  const sleepCard = whoopMiniCard('Sleep',
-    sleepP != null ? `${Math.round(sleepP)}<span style="font-size:13px;color:var(--text-3)">%</span>` : '—',
-    sleepSub, sColor);
+  const sleepCard = ring('Sleep',
+    sleepP != null ? `${Math.round(sleepP)}%` : '—', sleepSub,
+    sleepP != null ? sleepP / 100 : 0, sleepColor(sleepP));
 
-  // Recovery
   const rec = whoopState.recovery;
   const rScore = rec ? rec.recovery_score : null;
-  const rColor = recoveryColor(rScore);
   const recSub = rec && rec.hrv_rmssd != null ? `HRV ${Math.round(rec.hrv_rmssd)}ms` : (rec ? whoopDate(rec.date) : 'sin datos');
-  const recCard = whoopMiniCard('Recovery',
-    rScore != null ? `${Math.round(rScore)}<span style="font-size:13px;color:var(--text-3)">%</span>` : '—',
-    recSub, rColor);
+  const recCard = ring('Recovery',
+    rScore != null ? `${Math.round(rScore)}%` : '—', recSub,
+    rScore != null ? rScore / 100 : 0, recoveryColor(rScore));
 
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       ${wlogo}
       <button onclick="syncWhoop()" ${whoopState.loading ? 'disabled' : ''} style="background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:6px 14px;font-weight:600;font-size:12px;opacity:${whoopState.loading ? '.6' : '1'}">${syncLabel}</button>
     </div>
-    <div style="display:flex;gap:8px;margin-bottom:16px">${strainCard}${sleepCard}${recCard}</div>`;
+    <div style="display:flex;gap:8px;margin-bottom:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 8px">${strainCard}${sleepCard}${recCard}</div>`;
 }
 
-// Actividades ya realizadas hoy (del log de la app)
+// Actividad de hoy: lo agendado (plan) con estado pendiente o tic verde circular
 function renderTodayActivities() {
   const el = document.getElementById('today-activities');
   if (!el) return;
-  const acts = actualForDate(todayStr());
   const ICONS = { strength: '🏋️', cardio_intervals: '⚡', cardio_steady: '🏃', sport: '🎾', mobility: '🧘', rest: '😴' };
+  const wp = buildWeekPlan();
+  const td = wp.find(d => d.isToday);
+  const doneIds = new Set(((td && td.done) || []).map(d => d.type_id));
+  // Agenda de hoy = lo planificado (sin descanso) + lo hecho fuera de plan
+  let items = [];
+  if (td) {
+    (td.planned || []).forEach(p => { if (p.category !== 'rest') items.push({ type_id: p.type_id, name: p.name, category: p.category }); });
+    (td.done || []).forEach(d => {
+      if (!items.some(it => it.type_id === d.type_id)) {
+        const t = DAY_TEMPLATES.find(tp => tp.type_id === d.type_id);
+        items.push({ type_id: d.type_id, name: d.name, category: t ? t.category : '' });
+      }
+    });
+  }
   let inner;
-  if (!acts.length) {
-    inner = `<div style="color:var(--text-3);font-size:13px;padding:8px 0">Todavía no registraste actividad hoy</div>`;
+  if (!items.length) {
+    inner = `<div style="color:var(--text-3);font-size:13px;padding:8px 0">No tenés nada agendado hoy</div>`;
   } else {
-    inner = acts.map((a, i) => `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;${i < acts.length - 1 ? 'border-bottom:1px solid var(--border)' : ''}">
-      <span style="font-size:18px">${ICONS[a.category] || '✅'}</span>
-      <span style="color:var(--text);font-size:14px;font-weight:600">${a.name}</span>
-      <span style="margin-left:auto;color:var(--success);font-size:12px;font-weight:600">✓ hecho</span></div>`).join('');
+    inner = items.map((a, i) => {
+      const done = doneIds.has(a.type_id);
+      const status = done
+        ? `<span style="margin-left:auto;display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--success)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>`
+        : `<span style="margin-left:auto;color:var(--gold);font-size:12px;font-weight:700;border:1px solid var(--gold);border-radius:999px;padding:3px 10px">Pendiente</span>`;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;${i < items.length - 1 ? 'border-bottom:1px solid var(--border)' : ''}">
+        <span style="font-size:18px">${ICONS[a.category] || '✅'}</span>
+        <span style="color:var(--text);font-size:14px;font-weight:600">${a.name}</span>${status}</div>`;
+    }).join('');
   }
   el.innerHTML = `<div style="margin-bottom:16px">
     <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Actividad de hoy</div>
@@ -3073,6 +3102,7 @@ const NUT_QUICK = [
   {n:'Avena (80g) + banana', m:[416,14,80,6]}
 ];
 const PROT_GOAL = 190, KCAL_GOAL = 3000;
+const MEAL_ICONS = { 'Desayuno': '🍳', 'Almuerzo': '🍗', 'Cena': '🍽️', 'Snack': '🍎' };
 let mealType = 'Snack';
 
 function mealsKey() { return 'hf_meals_' + todayStr(); }
@@ -3086,6 +3116,7 @@ function renderNutritionCard() {
   const pct = Math.min(100, Math.round((T[1] / PROT_GOAL) * 100));
   const rows = meals.length ? meals.map((x, i) => `
     <div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--border)">
+      <span style="font-size:20px">${MEAL_ICONS[x.t] || '🍽️'}</span>
       <div style="min-width:0;flex:1">
         <div style="color:var(--text-3);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">${x.t}</div>
         <div style="color:var(--text);font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.n}</div>
@@ -3107,6 +3138,33 @@ function renderNutritionCard() {
       </div>
       ${rows}
       <button onclick="openAddMeal()" style="width:100%;margin-top:12px;background:var(--surface-2);color:var(--text);border:1px dashed var(--border);border-radius:12px;padding:11px;font-weight:700;font-size:14px;cursor:pointer">+ Add meal</button>
+    </div>
+  </div>`;
+  renderNutritionSummary();
+}
+
+function renderNutritionSummary() {
+  const el = document.getElementById('nutrition-summary');
+  if (!el) return;
+  const T = nutTotals(getMeals());
+  const bar = (label, val, goal, unit, color) => {
+    const pct = Math.min(100, Math.round((goal ? val / goal : 0) * 100));
+    return `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">
+        <span style="color:var(--text-3);font-size:13px">${label}</span>
+        <span><span style="font-weight:800;color:${color};font-size:16px">${val.toLocaleString('es-AR')}</span><span style="color:var(--text-3);font-size:12px"> / ${goal.toLocaleString('es-AR')} ${unit}</span></span>
+      </div>
+      <div style="height:9px;background:var(--surface-2);border-radius:6px;overflow:hidden;border:1px solid var(--border)"><div style="width:${pct}%;height:100%;background:${color}"></div></div>
+    </div>`;
+  };
+  el.innerHTML = `<div style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <span style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Nutrición de hoy</span>
+      <button onclick="showScreen('nutrition')" style="background:none;border:none;color:var(--accent-2);font-size:13px;font-weight:600;cursor:pointer">Ver →</button>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
+      ${bar('Proteína', T[1], PROT_GOAL, 'g', 'var(--accent)')}
+      ${bar('Calorías', T[0], KCAL_GOAL, 'kcal', 'var(--accent-3)')}
     </div>
   </div>`;
 }
