@@ -484,6 +484,10 @@
   <div class="modal" id="add-meal-body"></div>
 </div>
 
+<div class="modal-overlay" id="modal-ex-history" onclick="if(event.target===this)closeModal('modal-ex-history')">
+  <div class="modal" id="ex-history-body"></div>
+</div>
+
 <div class="modal-overlay" id="modal-set-password">
   <div class="modal">
     <h2>Setear contraseña</h2>
@@ -831,17 +835,14 @@ function getLastSessionForExercise(exId, beforeDateStr) {
 
 function suggestNextSession(exId, prescribedReps, currentDateStr) {
   const last = getLastSessionForExercise(exId, currentDateStr);
-  if (!last) return null;
+  const firstTime = { weight: '', action: 'first', note: 'Primera vez — registrá tu peso base de hoy', last_weight: null, last_avg_rpe: null, last_date: null, last_sets: [] };
+  if (!last) return firstTime;
   const sets = (last.sets[exId] || []).filter(s => s.weight && s.reps);
-  if (!sets.length) return null;
+  if (!sets.length) return firstTime;
 
-  const weights = sets.map(s => +s.weight);
-  const lastWeight = weights[0];
+  const lastWeight = +sets[0].weight;
   const target = parseRepsRange(prescribedReps);
-
-  // Completed: all sets hit at least the target reps
   const completed = sets.every(s => +s.reps >= target.min);
-  // Nearly completed: most sets hit target (tolerate 1 set short by 1-2 reps)
   const setsHit = sets.filter(s => +s.reps >= target.min).length;
   const nearlyCompleted = setsHit >= sets.length - 1 && sets.every(s => +s.reps >= target.min - 2);
 
@@ -849,34 +850,94 @@ function suggestNextSession(exId, prescribedReps, currentDateStr) {
   const avgRpe = rpes.length ? rpes.reduce((a,b)=>a+b,0) / rpes.length : null;
   const ago = daysAgo(last.date);
   const refNote = `(hace ${ago}d)`;
+  const u = loadUnit(exId);
 
   let weight = lastWeight;
   let action = 'maintain';
-  let note = `Mantener ${refNote}`;
+  let note = `Mantené ${lastWeight} ${u} ${refNote}`;
 
   if ((completed || nearlyCompleted) && avgRpe !== null) {
     if (avgRpe <= 3) {
-      // RPE 1-3: comfortable — increase weight
       weight = getNextWeight(lastWeight, exId);
       action = 'up';
-      note = `Subir +${getIncrement(exId)} kg — RPE ${avgRpe.toFixed(1)} ${refNote}`;
+      note = `Cumpliste fácil (RPE ${avgRpe.toFixed(1)}) → subí a ${weight} ${u} ${refNote}`;
     } else if (avgRpe <= 4) {
-      // RPE 3.1-4: good effort zone — maintain, push reps
       action = 'maintain';
-      note = `Mantener — buen esfuerzo, apuntar más reps · RPE ${avgRpe.toFixed(1)} ${refNote}`;
+      note = `Buen esfuerzo (RPE ${avgRpe.toFixed(1)}) → mantené y buscá más reps ${refNote}`;
     } else {
-      // RPE 4.1-5: heavy — maintain, watch form
       action = 'maintain';
-      note = `Mantener — carga alta, cuidar técnica · RPE ${avgRpe.toFixed(1)} ${refNote}`;
+      note = `Carga alta (RPE ${avgRpe.toFixed(1)}) → mantené, cuidá la técnica ${refNote}`;
     }
   } else if ((completed || nearlyCompleted) && avgRpe === null) {
-    note = `Mantener — sin RPE, cargá RPE para mejores sugerencias ${refNote}`;
-  } else if (!completed && !nearlyCompleted) {
+    action = 'maintain';
+    note = `Cumpliste, pero sin RPE no sé si subir. Cargá el RPE de cada serie ${refNote}`;
+  } else {
+    // No llegó al objetivo de reps. ¿Ya venía fallando la sesión anterior? → bajar
+    const prev = getLastSessionForExercise(exId, last.date);
+    let prevFailed = false;
+    if (prev && prev.sets[exId]) {
+      const ps = (prev.sets[exId] || []).filter(s => s.weight && s.reps);
+      if (ps.length) prevFailed = !ps.every(s => +s.reps >= target.min);
+    }
     const repsStr = sets.map(s => s.reps).join(', ');
-    note = `Mantener — reps: ${repsStr} (objetivo: ${target.min}) ${refNote}`;
+    if (prevFailed) {
+      weight = Math.max(0, Math.round((lastWeight - getIncrement(exId)) * 2) / 2);
+      action = 'down';
+      note = `2da vez sin llegar a ${target.min} reps → bajá a ${weight} ${u} ${refNote}`;
+    } else {
+      action = 'maintain';
+      note = `No llegaste a ${target.min} reps (${repsStr}) → repetí ${lastWeight} ${u} ${refNote}`;
+    }
   }
-
   return { weight, action, note, last_weight: lastWeight, last_avg_rpe: avgRpe, last_date: last.date, last_sets: sets };
+}
+
+// Histórico de un ejercicio: últimas N sesiones con sets, RPE y 1RM estimado
+function getExerciseHistory(exId, limit) {
+  limit = limit || 10;
+  return loadWorkouts()
+    .filter(w => w.sets && w.sets[exId] && w.sets[exId].some(s => s.weight && s.reps))
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, limit)
+    .map(w => {
+      const sets = (w.sets[exId] || []).filter(s => s.weight && s.reps);
+      const rpes = sets.filter(s => s.rpe !== '' && s.rpe != null).map(s => +s.rpe);
+      const avgRpe = rpes.length ? rpes.reduce((a, b) => a + b, 0) / rpes.length : null;
+      const best1rm = sets.reduce((m, s) => Math.max(m, +s.weight * (1 + (+s.reps) / 30)), 0);
+      return { date: w.date, sets, avgRpe, best1rm };
+    });
+}
+
+function openExerciseHistory(exId) {
+  const ex = findExercise(exId);
+  const hist = getExerciseHistory(exId, 10);
+  const unit = loadUnit(exId);
+  const body = document.getElementById('ex-history-body');
+  let rows;
+  if (!hist.length) {
+    rows = `<div style="color:var(--text-3);font-size:14px;padding:14px 0">Todavía no hay sesiones de este ejercicio. Cargá una y acá vas a ver tu progreso semana a semana.</div>`;
+  } else {
+    rows = hist.map(h => {
+      const d = new Date(h.date + 'T00:00:00').toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' });
+      const setsStr = h.sets.map(s => `${s.weight}×${s.reps}`).join('   ·   ');
+      const rpe = h.avgRpe != null ? `RPE ${h.avgRpe.toFixed(1)}` : 'sin RPE';
+      return `<div style="padding:11px 0;border-top:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <span style="color:var(--accent);font-size:12px;font-weight:700;text-transform:capitalize">${d}</span>
+          <span style="color:var(--text-3);font-size:11px">${rpe} · 1RM ~${Math.round(h.best1rm)} ${unit}</span>
+        </div>
+        <div style="color:var(--text);font-size:14px;margin-top:3px">${setsStr}</div>
+      </div>`;
+    }).join('');
+  }
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <h2 style="margin:0">${ex ? ex.name : 'Ejercicio'}</h2>
+      <button onclick="closeModal('modal-ex-history')" style="background:none;border:none;color:var(--text-3);font-size:26px;line-height:1;cursor:pointer">×</button>
+    </div>
+    <div style="color:var(--text-3);font-size:12px;margin-bottom:8px">Histórico — ${hist.length === 1 ? 'última sesión' : 'últimas ' + hist.length + ' sesiones'}</div>
+    ${rows}`;
+  document.getElementById('modal-ex-history').classList.add('open');
 }
 
 // =============== PRs ===============
@@ -1747,11 +1808,25 @@ function renderStrengthDay(typeId, dateStr) {
       lastSessionHTML = `<div class="last-session"><span class="label">Última (hace ${ago}d):</span><span class="values">${setsStr}${lsAvgRpe ? ' · RPE ' + lsAvgRpe : ''}</span></div>`;
     }
 
-    // Sugerencia
+    // Sugerencia con acción y color
     const suggestion = suggestNextSession(exId, meta ? meta.reps : '', dateStr);
     let suggestionHTML = '';
     if (suggestion) {
-      suggestionHTML = `<div class="suggestion-card"><span class="label">Sugerencia:</span><span class="weight">${suggestion.weight} ${loadUnit(exId)}</span><span class="hint">${suggestion.note}</span></div>`;
+      const SUG = {
+        up:       { label: '↑ SUBIR',    bg: 'rgba(34,197,94,.12)',   bd: 'rgba(34,197,94,.4)',   col: 'var(--success)' },
+        down:     { label: '↓ BAJAR',    bg: 'rgba(255,212,59,.12)',  bd: 'rgba(255,212,59,.4)',  col: 'var(--gold)' },
+        maintain: { label: '= MANTENER', bg: 'rgba(197,181,245,.12)', bd: 'rgba(197,181,245,.35)', col: 'var(--accent-2)' },
+        first:    { label: '★ BASE',     bg: 'var(--surface-2)',      bd: 'var(--border)',        col: 'var(--text-2)' }
+      };
+      const a = SUG[suggestion.action] || SUG.maintain;
+      const wTxt = (suggestion.weight !== '' && suggestion.weight != null) ? `<span class="weight">${suggestion.weight} ${loadUnit(exId)}</span>` : '';
+      suggestionHTML = `<div class="suggestion-card" style="background:${a.bg};border-color:${a.bd}">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+          <span class="label" style="color:${a.col};margin:0">${a.label}</span>${wTxt}
+          <button onclick="event.stopPropagation();openExerciseHistory('${exId}')" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:8px;color:var(--text-2);font-size:11px;font-weight:700;padding:3px 9px;cursor:pointer">📊 Histórico</button>
+        </div>
+        <div class="hint" style="margin:0;font-style:normal">${suggestion.note}</div>
+      </div>`;
     }
 
     // Histórico para detección de PRs
@@ -2233,7 +2308,7 @@ const MUSCLE_PRIMARY_MAP = {
   'Tríceps': 'brazos', 'Piernas': 'piernas', 'Glúteos': 'piernas'
 };
 
-function parseRepsRange(str) {
+function parseRepsAvg(str) {
   if (!str) return 8;
   const m = String(str).match(/(\d+)-(\d+)/);
   if (m) return (parseInt(m[1]) + parseInt(m[2])) / 2;
@@ -2288,7 +2363,7 @@ function computeMuscleWeekIndex() {
       done.forEach(s => { if (s.rpe) { a.totalRPE += +s.rpe; a.rpeCount++; } });
       // Reps prescritas para este ejercicio en este día
       const meta = dayExs.find(e => e.id === exId);
-      const prescribed = parseRepsRange(meta ? meta.reps : '8');
+      const prescribed = parseRepsAvg(meta ? meta.reps : '8');
       done.forEach(() => a.prescribedReps.push(prescribed));
       // Sub-grupos
       const group = MUSCLE_GROUPS.find(g => g.id === groupId);
