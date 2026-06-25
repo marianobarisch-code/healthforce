@@ -367,6 +367,9 @@
       <h1>Healthforce</h1>
     </div>
     <div class="header-actions">
+      <button class="icon-btn" onclick="manualSync()" title="Sincronizar ahora">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+      </button>
       <button class="icon-btn" onclick="showScreen('settings')" title="Ajustes y conexiones">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       </button>
@@ -3862,6 +3865,21 @@ async function syncWhoop() {
 // Safari y al volver iOS NO re-ejecuta init() (despierta la página congelada),
 // así que sin esto la tarjeta queda en "Conectar" aunque ya esté conectado.
 let whoopRefreshInFlight = false;
+async function manualSync() {
+  if (!currentSession) { toast('Iniciá sesión primero', true); return; }
+  showSyncIndicator(true);
+  try {
+    await retryPendingSyncs();
+    await syncFromServer();
+    await syncNutritionStepsFromCloud();
+    await loadWhoopReview();
+    if (currentScreen === 'home' || currentScreen === 'training' || currentScreen === 'nutrition') renderHome();
+    toast('Sincronizado ✓');
+  } catch (e) {
+    toast('Sync falló: ' + (e.message || 'error'), true);
+  } finally { showSyncIndicator(false); }
+}
+
 let lastResync = 0;
 async function refreshWhoopOnResume() {
   if (!currentSession || whoopRefreshInFlight) return;
