@@ -1298,9 +1298,9 @@ document.querySelectorAll('.nav-btn[data-screen]').forEach(btn => {
 function showLogTrainingModal() {
   const sel = document.getElementById('log-type');
   sel.innerHTML = DAY_TEMPLATES.filter(t => !t.legacy).map(t => `<option value="${t.type_id}">${t.name}</option>`).join('');
-  const today = new Date();
-  document.getElementById('log-date').value = todayStr();
-  const tpls = templatesForWeekday(getWeekday(today));
+  const ds = viewDate || todayStr();
+  document.getElementById('log-date').value = ds;
+  const tpls = templatesForWeekday(getWeekday(new Date(ds + 'T00:00:00')));
   if (tpls.length) sel.value = tpls[0].type_id;
   document.getElementById('modal-log-training').classList.add('open');
 }
@@ -3862,6 +3862,7 @@ async function syncWhoop() {
 // Safari y al volver iOS NO re-ejecuta init() (despierta la página congelada),
 // así que sin esto la tarjeta queda en "Conectar" aunque ya esté conectado.
 let whoopRefreshInFlight = false;
+let lastResync = 0;
 async function refreshWhoopOnResume() {
   if (!currentSession || whoopRefreshInFlight) return;
   whoopRefreshInFlight = true;
@@ -3871,6 +3872,14 @@ async function refreshWhoopOnResume() {
     renderWhoopDashboard();
     renderReviewBanner();
     autoSyncIntegrations();
+    // Resync entre dispositivos (entrenos + nutrición + pasos), con throttle de 20s
+    if (Date.now() - lastResync > 20000) {
+      lastResync = Date.now();
+      await retryPendingSyncs();
+      await syncFromServer();
+      await syncNutritionStepsFromCloud();
+      if (currentScreen === 'home' || currentScreen === 'training' || currentScreen === 'nutrition') renderHome();
+    }
   } finally {
     whoopRefreshInFlight = false;
   }
