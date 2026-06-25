@@ -379,11 +379,16 @@
     </div>
   </div>
 
-  <div id="review-banner"></div>
-  <div id="whoop-cards"></div>
-  <div id="today-activities"></div>
-  <div id="nutrition-summary"></div>
-  <div id="steps-card"></div>
+  <div id="home-datebar"></div>
+  <div id="home-day">
+    <div id="review-banner"></div>
+    <div id="whoop-cards"></div>
+    <div id="today-activities"></div>
+    <div id="nutrition-summary"></div>
+    <div id="steps-card"></div>
+  </div>
+  <div id="home-week"></div>
+  <div id="home-historico"></div>
 </section>
 
 <section class="screen" id="screen-training">
@@ -1308,6 +1313,8 @@ function confirmLogTraining() {
 }
 
 let viewedWeekOffset = 0; // 0 = semana actual, -1 = anterior, 1 = siguiente, etc.
+let viewDate = null;       // fecha que se está mirando en el Home (ISO)
+let homeView = 'day';      // 'day' | 'week' | 'historico'
 
 const DAY_LONG_NAMES_ES = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
 const MONTHS_ES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
@@ -1562,6 +1569,144 @@ function tplCategory(typeId) {
   return t ? (CATEGORY_LABELS[t.category] || t.category) : '';
 }
 
+// ===== Navegación temporal: día / semana / histórico =====
+function viewDateObj() { return new Date((viewDate || todayStr()) + 'T00:00:00'); }
+function capFirst(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+function dateLabel(dateStr) {
+  if (dateStr === todayStr()) return 'Hoy';
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  if (dateStr === dateToISO(y)) return 'Ayer';
+  return capFirst(new Date(dateStr + 'T00:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'short' }));
+}
+function shiftView(delta) {
+  const d = viewDateObj(); d.setDate(d.getDate() + delta);
+  const iso = dateToISO(d);
+  if (iso > todayStr()) return; // sin futuro
+  viewDate = iso; renderHome();
+}
+function shiftWeek(delta) {
+  const d = viewDateObj(); d.setDate(d.getDate() + delta * 7);
+  let iso = dateToISO(d);
+  if (iso > todayStr()) iso = todayStr();
+  viewDate = iso; renderHome();
+}
+function goToday() { viewDate = todayStr(); renderHome(); }
+function setHomeView(v) { homeView = v; renderHome(); }
+function pickDay(dateStr) { viewDate = dateStr; homeView = 'day'; renderHome(); }
+
+function weekRangeLabel() {
+  const ws = getWeekStart(viewDateObj());
+  const we = new Date(ws); we.setDate(we.getDate() + 6);
+  return `${ws.getDate()} ${MONTHS_ES[ws.getMonth()]} – ${we.getDate()} ${MONTHS_ES[we.getMonth()]}`;
+}
+function dayHasData(dateStr) {
+  const tr = workoutsForDate(dateStr).length > 0;
+  const st = (parseInt(localStorage.getItem('hf_steps_' + dateStr) || '0', 10) || 0) > 0;
+  let ml = false;
+  try { ml = JSON.parse(localStorage.getItem('hf_meals_' + dateStr) || '[]').length > 0; } catch (e) {}
+  return { tr, st, ml, any: tr || st || ml };
+}
+function collectDataDates() {
+  const set = new Set();
+  loadWorkouts().forEach(w => { if (w.date) set.add(w.date); });
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    let m = k && k.match(/^hf_steps_(\d{4}-\d{2}-\d{2})$/);
+    if (m && (parseInt(localStorage.getItem(k) || '0', 10) || 0) > 0) set.add(m[1]);
+    m = k && k.match(/^hf_meals_(\d{4}-\d{2}-\d{2})$/);
+    if (m) { try { if (JSON.parse(localStorage.getItem(k) || '[]').length) set.add(m[1]); } catch (e) {} }
+  }
+  return [...set].sort((a, b) => b.localeCompare(a));
+}
+
+function renderDateBar() {
+  const el = document.getElementById('home-datebar'); if (!el) return;
+  const segs = [['day', 'Día'], ['week', 'Semana'], ['historico', 'Histórico']];
+  const toggle = segs.map(([v, lbl]) => {
+    const on = homeView === v;
+    return `<button onclick="setHomeView('${v}')" style="flex:1;text-align:center;font-size:13px;font-weight:700;padding:7px;border:none;border-radius:8px;cursor:pointer;background:${on ? 'var(--surface)' : 'transparent'};color:${on ? 'var(--text)' : 'var(--text-2)'}">${lbl}</button>`;
+  }).join('');
+  let navRow = '';
+  const cur = viewDate || todayStr();
+  if (homeView === 'day') {
+    const atToday = cur === todayStr();
+    navRow = `<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
+      <button onclick="shiftView(-1)" style="background:none;border:none;color:var(--text-2);font-size:26px;line-height:1;cursor:pointer;padding:0 6px">‹</button>
+      <div style="text-align:center">
+        <div style="font-size:15px;font-weight:700;color:var(--text)">${dateLabel(cur)}</div>
+        ${atToday ? '' : `<button onclick="goToday()" style="background:none;border:none;color:var(--accent-2);font-size:12px;font-weight:600;cursor:pointer;padding:2px 0">ir a hoy</button>`}
+      </div>
+      <button onclick="shiftView(1)" ${atToday ? 'disabled' : ''} style="background:none;border:none;color:${atToday ? 'var(--text-3)' : 'var(--text-2)'};font-size:26px;line-height:1;cursor:${atToday ? 'default' : 'pointer'};padding:0 6px">›</button>
+    </div>`;
+  } else if (homeView === 'week') {
+    navRow = `<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
+      <button onclick="shiftWeek(-1)" style="background:none;border:none;color:var(--text-2);font-size:26px;line-height:1;cursor:pointer;padding:0 6px">‹</button>
+      <div style="font-size:14px;font-weight:700;color:var(--text)">${weekRangeLabel()}</div>
+      <button onclick="shiftWeek(1)" style="background:none;border:none;color:var(--text-2);font-size:26px;line-height:1;cursor:pointer;padding:0 6px">›</button>
+    </div>`;
+  }
+  el.innerHTML = `<div style="display:flex;gap:4px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:3px">${toggle}</div>${navRow}<div style="height:12px"></div>`;
+}
+
+function renderHomeWeek() {
+  const el = document.getElementById('home-week'); if (!el) return;
+  const ws = getWeekStart(viewDateObj());
+  let cells = '', doneCount = 0, mealDays = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(ws); d.setDate(d.getDate() + i);
+    const ds = dateToISO(d);
+    const data = dayHasData(ds);
+    if (data.tr) doneCount++;
+    if (data.ml) mealDays++;
+    const isToday = ds === todayStr();
+    const isSel = ds === (viewDate || todayStr());
+    const future = ds > todayStr();
+    let dots = '';
+    if (data.tr) dots += `<span style="width:5px;height:5px;border-radius:50%;background:var(--accent-2)"></span>`;
+    if (data.ml) dots += `<span style="width:5px;height:5px;border-radius:50%;background:var(--accent)"></span>`;
+    if (data.st) dots += `<span style="width:5px;height:5px;border-radius:50%;background:var(--gold)"></span>`;
+    cells += `<div onclick="${future ? '' : `pickDay('${ds}')`}" style="text-align:center;padding:9px 0;border-radius:8px;cursor:${future ? 'default' : 'pointer'};opacity:${future ? '.4' : '1'};background:${isSel ? 'var(--surface-2)' : 'transparent'};border:1px solid ${isSel ? 'var(--accent)' : 'transparent'}">
+      <div style="font-size:10px;color:var(--text-3)">${['L', 'M', 'M', 'J', 'V', 'S', 'D'][i]}</div>
+      <div style="font-size:15px;font-weight:700;color:${isToday ? 'var(--accent)' : 'var(--text)'}">${d.getDate()}</div>
+      <div style="display:flex;gap:2px;justify-content:center;margin-top:4px;min-height:5px">${dots}</div>
+    </div>`;
+  }
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:14px">${cells}</div>
+    <div style="display:flex;gap:8px;margin-bottom:6px">
+      <div style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px"><div style="font-size:11px;color:var(--text-3)">Entrenos</div><div style="font-size:18px;font-weight:800;color:var(--text)">${doneCount}</div></div>
+      <div style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px"><div style="font-size:11px;color:var(--text-3)">Días con comida</div><div style="font-size:18px;font-weight:800;color:var(--text)">${mealDays} / 7</div></div>
+    </div>
+    <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:8px">Tocá un día para abrirlo</div>`;
+}
+
+function renderHomeHistorico() {
+  const el = document.getElementById('home-historico'); if (!el) return;
+  const dates = collectDataDates();
+  if (!dates.length) {
+    el.innerHTML = `<div style="color:var(--text-3);font-size:14px;padding:14px 0;text-align:center">Todavía no hay días con datos. Cargá entrenos, pasos o comidas y van a aparecer acá.</div>`;
+    return;
+  }
+  const rows = dates.map(ds => {
+    const wkts = workoutsForDate(ds);
+    const trName = wkts.length ? wkts.map(w => { const t = DAY_TEMPLATES.find(tp => tp.type_id === w.type_id); return t ? t.name : (w.name || ''); }).filter(Boolean).join(' + ') : '';
+    let prot = 0; try { prot = JSON.parse(localStorage.getItem('hf_meals_' + ds) || '[]').reduce((a, m) => a + (m.m ? m.m[1] : 0), 0); } catch (e) {}
+    const steps = parseInt(localStorage.getItem('hf_steps_' + ds) || '0', 10) || 0;
+    const bits = [];
+    if (trName) bits.push('🏋️ ' + trName);
+    if (steps) bits.push(steps.toLocaleString('es-AR') + ' pasos');
+    if (prot) bits.push(Math.round(prot) + ' g prot');
+    return `<div onclick="pickDay('${ds}')" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:8px;cursor:pointer">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:14px;font-weight:700;color:var(--text)">${dateLabel(ds)}</span>
+        <span style="color:var(--text-3);font-size:18px">›</span>
+      </div>
+      <div style="color:var(--text-2);font-size:12px;margin-top:3px">${bits.join('  ·  ') || 'sin detalle'}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = rows + `<div style="display:flex;align-items:center;gap:8px;color:var(--text-3);font-size:12px;margin-top:10px;justify-content:center">🔥 Registrando desde ${dateLabel(dates[dates.length - 1])}</div>`;
+}
+
 function renderHome() {
   const today = new Date();
   const hour = today.getHours();
@@ -1570,11 +1715,23 @@ function renderHome() {
   if (hour >= 19 || hour < 6) greeting = 'Buenas noches, Mariano';
   document.getElementById('home-greeting').textContent = greeting;
 
-  renderReviewBanner();
-  renderWhoopDashboard();
-  renderTodayActivities();
-  renderStepsCard();
-  renderNutritionSummary();
+  if (!viewDate) viewDate = todayStr();
+  renderDateBar();
+  const _d = document.getElementById('home-day'), _w = document.getElementById('home-week'), _h = document.getElementById('home-historico');
+  if (_d) _d.style.display = homeView === 'day' ? '' : 'none';
+  if (_w) _w.style.display = homeView === 'week' ? '' : 'none';
+  if (_h) _h.style.display = homeView === 'historico' ? '' : 'none';
+  if (homeView === 'day') {
+    renderReviewBanner();
+    renderWhoopDashboard();
+    renderTodayActivities();
+    renderStepsCard();
+    renderNutritionSummary();
+  } else if (homeView === 'week') {
+    renderHomeWeek();
+  } else if (homeView === 'historico') {
+    renderHomeHistorico();
+  }
   renderNutritionCard();
   renderMuscleWeekDashboard();
 
@@ -3014,6 +3171,7 @@ function whoopMiniCard(label, valueHTML, sub, color) {
 function renderWhoopDashboard() {
   const el = document.getElementById('whoop-cards');
   if (!el) return;
+  if ((viewDate || todayStr()) !== todayStr()) { el.innerHTML = ''; return; }
   const wlogo = '<span style="font-weight:800;letter-spacing:.5px;color:var(--text-2);font-size:12px">WHOOP</span>';
 
   if (!whoopState.connected) {
@@ -3074,28 +3232,26 @@ function renderWhoopDashboard() {
     <div style="display:flex;gap:8px;margin-bottom:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 8px">${strainCard}${sleepCard}${recCard}</div>`;
 }
 
-// Actividad de hoy: lo agendado (plan) con estado pendiente o tic verde circular
+// Actividad del día (viewDate): lo agendado con estado pendiente o tic verde circular
 function renderTodayActivities() {
   const el = document.getElementById('today-activities');
   if (!el) return;
   const ICONS = { strength: '🏋️', cardio_intervals: '⚡', cardio_steady: '🏃', sport: '🎾', mobility: '🧘', rest: '😴' };
-  const wp = buildWeekPlan();
-  const td = wp.find(d => d.isToday);
-  const doneIds = new Set(((td && td.done) || []).map(d => d.type_id));
-  // Agenda de hoy = lo planificado (sin descanso) + lo hecho fuera de plan
-  let items = [];
-  if (td) {
-    (td.planned || []).forEach(p => { if (p.category !== 'rest') items.push({ type_id: p.type_id, name: p.name, category: p.category }); });
-    (td.done || []).forEach(d => {
-      if (!items.some(it => it.type_id === d.type_id)) {
-        const t = DAY_TEMPLATES.find(tp => tp.type_id === d.type_id);
-        items.push({ type_id: d.type_id, name: d.name, category: t ? t.category : '' });
-      }
-    });
-  }
+  const ds = viewDate || todayStr();
+  const wd = getWeekday(new Date(ds + 'T00:00:00'));
+  const planned = templatesForWeekday(wd).filter(t => t.category !== 'rest');
+  const done = workoutsForDate(ds);
+  const doneIds = new Set(done.map(w => w.type_id));
+  let items = planned.map(t => ({ type_id: t.type_id, name: t.name, category: t.category }));
+  done.forEach(w => {
+    if (!items.some(it => it.type_id === w.type_id)) {
+      const t = DAY_TEMPLATES.find(tp => tp.type_id === w.type_id);
+      items.push({ type_id: w.type_id, name: t ? t.name : (w.name || w.type_id), category: t ? t.category : '' });
+    }
+  });
   let inner;
   if (!items.length) {
-    inner = `<div style="color:var(--text-3);font-size:13px;padding:8px 0">No tenés nada agendado hoy</div>`;
+    inner = `<div style="color:var(--text-3);font-size:13px;padding:8px 0">No tenés nada agendado este día</div>`;
   } else {
     inner = items.map((a, i) => {
       const done = doneIds.has(a.type_id);
@@ -3108,14 +3264,14 @@ function renderTodayActivities() {
     }).join('');
   }
   el.innerHTML = `<div style="margin-bottom:16px">
-    <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Actividad de hoy</div>
+    <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Actividad</div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:4px 14px">${inner}</div>
   </div>`;
 }
 
 // Pasos del día (carga manual — Whoop no expone pasos por API)
 let stepsEditing = false;
-function stepsKey() { return 'hf_steps_' + todayStr(); }
+function stepsKey() { return 'hf_steps_' + (viewDate || todayStr()); }
 function getSteps() { return parseInt(localStorage.getItem(stepsKey()) || '0', 10) || 0; }
 function editSteps() { stepsEditing = true; renderStepsCard(); const i = document.getElementById('steps-input'); if (i) { i.focus(); i.select(); } }
 function saveSteps() {
@@ -3145,7 +3301,7 @@ function renderStepsCard() {
        <div style="color:${remaining > 0 ? 'var(--text-3)' : 'var(--success)'};font-size:12px;margin-top:2px">${remaining > 0 ? 'Faltan ' + remaining.toLocaleString('es-AR') + ' para la meta' : 'Meta cumplida 🎉'}</div>`;
   el.innerHTML = `<div style="margin-bottom:16px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <span style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Pasos de hoy</span>
+      <span style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Pasos</span>
       ${stepsEditing ? '' : `<button onclick="editSteps()" style="background:none;border:none;color:var(--accent-2);font-size:13px;font-weight:600;cursor:pointer">Editar</button>`}
     </div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
@@ -3180,7 +3336,7 @@ const PROT_GOAL = 190, KCAL_GOAL = 3000;
 const MEAL_ICONS = { 'Desayuno': '🍳', 'Almuerzo': '🍗', 'Cena': '🍽️', 'Snack': '🍎' };
 let mealType = 'Snack';
 
-function mealsKey() { return 'hf_meals_' + todayStr(); }
+function mealsKey() { return 'hf_meals_' + (viewDate || todayStr()); }
 function getMeals() { try { return JSON.parse(localStorage.getItem(mealsKey()) || '[]'); } catch (e) { return []; } }
 function setMealsLS(a) { localStorage.setItem(mealsKey(), JSON.stringify(a)); }
 function nutTotals(a) { const t = [0,0,0,0]; (a || []).forEach(x => { for (let i = 0; i < 4; i++) t[i] += x.m[i]; }); return t.map(Math.round); }
@@ -3234,7 +3390,7 @@ function renderNutritionSummary() {
   };
   el.innerHTML = `<div style="margin-bottom:16px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <span style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Nutrición de hoy</span>
+      <span style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Nutrición</span>
       <button onclick="showScreen('nutrition')" style="background:none;border:none;color:var(--accent-2);font-size:13px;font-weight:600;cursor:pointer">Ver →</button>
     </div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
