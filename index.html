@@ -383,6 +383,7 @@
   </div>
 
   <div id="home-datebar"></div>
+  <div id="sync-status"></div>
   <div id="home-day">
     <div id="review-banner"></div>
     <div id="whoop-cards"></div>
@@ -1722,6 +1723,7 @@ function renderHome() {
 
   if (!viewDate) viewDate = todayStr();
   renderDateBar();
+  renderSyncStatus();
   const _d = document.getElementById('home-day'), _w = document.getElementById('home-week'), _h = document.getElementById('home-historico');
   if (_d) _d.style.display = homeView === 'day' ? '' : 'none';
   if (_w) _w.style.display = homeView === 'week' ? '' : 'none';
@@ -3880,6 +3882,24 @@ async function manualSync() {
   } catch (e) {
     toast('Sync falló: ' + (e.message || 'error'), true);
   } finally { showSyncIndicator(false); }
+}
+
+function renderSyncStatus() {
+  const el = document.getElementById('sync-status'); if (!el) return;
+  if (!currentSession) { el.innerHTML = ''; return; }
+  const pending = loadWorkouts().filter(w => !w.server_id).length;
+  if (pending > 0) {
+    el.innerHTML = `<div onclick="manualSync()" style="display:flex;align-items:center;gap:10px;background:rgba(239,68,68,.12);border:1px solid var(--danger);border-radius:var(--radius-sm);padding:11px 14px;margin-bottom:14px;cursor:pointer">
+      <span style="font-size:18px">⚠️</span>
+      <div style="flex:1;min-width:0">
+        <div style="color:var(--danger);font-weight:700;font-size:13px">${pending} entreno${pending > 1 ? 's' : ''} sin guardar en la nube</div>
+        <div style="color:var(--text-3);font-size:11px">Tocá para reintentar la sincronización</div>
+      </div>
+      <span style="color:var(--danger);font-weight:700;font-size:13px;white-space:nowrap">Reintentar ↻</span>
+    </div>`;
+  } else {
+    el.innerHTML = `<div style="display:flex;align-items:center;gap:7px;color:var(--success);font-size:12px;margin-bottom:14px"><span>✓</span><span>Todo sincronizado en la nube</span></div>`;
+  }
 }
 
 let lastResync = 0;
