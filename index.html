@@ -1181,7 +1181,9 @@ async function pushUserExercise(ex) {
 
 async function retryPendingSyncs() {
   const all = loadWorkouts();
-  const pending = all.filter(w => w._synced === false);
+  // Reintentar cualquier workout que no esté confirmado en el servidor (sin server_id),
+  // no solo los marcados _synced:false (cubre workouts viejos sin la marca).
+  const pending = all.filter(w => !w.server_id && w._synced !== true);
   for (const w of pending) {
     try {
       const newId = await pushWorkoutToServer(w);
