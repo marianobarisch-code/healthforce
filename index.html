@@ -3350,29 +3350,42 @@ function renderStepsCard() {
 }
 
 // ===== Nutrición (Fase 1 — localStorage por día) =====
+// Proteínas: macros por 100 g CRUDO (Mariano pesa crudo). [kcal, P, C, G]
 const NUT_PROT = {
-  'Pechuga de pollo':[165,31,0,4], 'Muslo (pata-muslo)':[175,27,0,7],
-  'Colita de cuadril':[210,29,0,10], 'Entraña':[260,27,0,17], 'Picaña':[290,25,0,21],
-  'Carne picada magra':[190,27,0,9], 'Trucha':[170,26,0,7], 'Salmón':[210,23,0,13],
-  'Merluza':[95,21,0,1], 'Atún al natural':[110,25,0,1]
+  'Pechuga de pollo':[120,22,0,2.6], 'Pata-muslo (s/piel)':[143,18,0,8],
+  'Colita de cuadril':[150,21,0,7], 'Trucha':[120,20,0,4], 'Entraña':[210,18,0,15]
 };
+// Carbos: por 100 g cocido
 const NUT_CARB = {
   'Arroz blanco':[130,2.7,28,0.3], 'Papa':[87,2,20,0.1], 'Batata':[90,1.5,21,0.1],
-  'Fideos':[158,6,31,1], 'Avena (seca)':[389,17,66,7], 'Sin carbo':[0,0,0,0]
+  'Fideos':[158,6,31,1], 'Lentejas':[115,9,20,0.5]
 };
-const NUT_VEG = {
+// Ítems de porción fija (se agregan de a 1)
+const NUT_FIXED = {
   'Ensalada mixta':[40,2,6,1], 'Verduras salteadas':[70,3,10,2], 'Brócoli':[40,3,7,0],
-  'Portobello':[33,3,6,0], 'Tomate / pepino':[30,1,6,0], 'Sin verdura':[0,0,0,0]
+  'Portobello':[33,3,6,0], 'Tomate / pepino':[30,1,6,0],
+  'Banana':[105,1,27,0], 'Manzana':[95,0,25,0], 'Frutos rojos (taza)':[60,1,14,0],
+  'Palta (1/2)':[120,2,6,11], 'Almendras (30 g)':[180,6,6,15], 'Aceite de oliva (1 cda)':[120,0,0,14],
+  'Huevo (1 u)':[72,6,0.5,5], 'Claras (3)':[51,11,0,0], 'Pan integral (rebanada)':[80,4,14,1],
+  'Avena (40 g)':[150,5,27,3],
+  'Yogur Ser Pro+ (175 g)':[133,15,14,2], 'Scoop proteína vainilla':[120,24,3,2]
 };
-const NUT_QUICK = [
-  {n:'Yogur griego + proteína', m:[220,40,9,2]},
-  {n:'Burrito proteico', m:[300,25,30,10]},
-  {n:'2 huevos + pan', m:[304,20,29,12]},
-  {n:'Avena (80g) + banana', m:[416,14,80,6]}
+// Atajos: arrancan un plato con uno o más ingredientes precargados
+const NUT_ATAJOS = [
+  { n:'Burrito pollo y arroz', items:[{name:'Burrito pollo y arroz', m:[675,60,65,18]}] },
+  { n:'Burrito roast beef', items:[{name:'Burrito roast beef', m:[685,55,60,25]}] },
+  { n:'Burrito bondiola', items:[{name:'Burrito bondiola', m:[758,53,60,34]}] },
+  { n:'Yogur proteico', items:[{name:'Yogur Ser Pro+', m:[133,15,14,2]}, {name:'Scoop proteína', m:[120,24,3,2]}] }
 ];
 const PROT_GOAL = 190, KCAL_GOAL = 3000;
 const MEAL_ICONS = { 'Desayuno': '🍳', 'Almuerzo': '🍗', 'Cena': '🍽️', 'Snack': '🍎' };
+// Estado del constructor de plato
 let mealType = 'Snack';
+let plateItems = [];
+let pickerMode = null;     // null = vista plato; 'list' = elegir ingrediente
+let pickerCat = 'Proteínas';
+function getCustomFoods() { try { return JSON.parse(localStorage.getItem('hf_custom_foods') || '[]'); } catch (e) { return []; } }
+function saveCustomFood(name, m) { const a = getCustomFoods(); if (!a.some(x => x.name.toLowerCase() === name.toLowerCase())) { a.push({ name, m }); localStorage.setItem('hf_custom_foods', JSON.stringify(a)); } }
 
 function mealsKey() { return 'hf_meals_' + (viewDate || todayStr()); }
 function getMeals() { try { return JSON.parse(localStorage.getItem(mealsKey()) || '[]'); } catch (e) { return []; } }
@@ -3439,76 +3452,132 @@ function renderNutritionSummary() {
 }
 
 function deleteMeal(i) { const a = getMeals(); a.splice(i, 1); setMealsLS(a); renderNutritionCard(); }
-function openAddMeal() { mealType = 'Snack'; document.getElementById('modal-add-meal').classList.add('open'); renderAddMealBody(); }
+function openAddMeal() {
+  mealType = 'Snack'; plateItems = []; pickerMode = null; pickerCat = 'Proteínas';
+  document.getElementById('modal-add-meal').classList.add('open');
+  renderAddMealBody();
+}
 function closeAddMeal() { document.getElementById('modal-add-meal').classList.remove('open'); }
-function setMealType(t) {
-  mealType = t;
-  document.querySelectorAll('.meal-type-chip').forEach(c => {
-    const on = c.dataset.mt === t;
-    c.style.background = on ? 'var(--accent)' : 'var(--surface-2)';
-    c.style.color = on ? '#0a0a0a' : 'var(--text-2)';
-  });
+function setMealType(t) { mealType = t; renderAddMealBody(); }
+function setPicker(mode) { pickerMode = mode; renderAddMealBody(); }
+function setPickerCat(c) { pickerCat = c; renderAddMealBody(); }
+
+function plateTotals() { const t = [0,0,0,0]; plateItems.forEach(it => { for (let i = 0; i < 4; i++) t[i] += it.m[i]; }); return t.map(Math.round); }
+function addPlateItem(name, m) { plateItems.push({ name, m: m.map(x => Math.round(x * 10) / 10) }); pickerMode = null; renderAddMealBody(); }
+function removePlateItem(i) { plateItems.splice(i, 1); renderAddMealBody(); }
+function addAtajo(i) { NUT_ATAJOS[i].items.forEach(it => plateItems.push({ name: it.name, m: it.m.slice() })); renderAddMealBody(); }
+function addFixedItem(key) { addPlateItem(key, NUT_FIXED[key].slice()); }
+function addCustomFromList(name) { const f = getCustomFoods().find(x => x.name === name); if (f) addPlateItem(f.name, f.m.slice()); }
+function addGramFromRow(btn) {
+  const input = btn.parentElement.querySelector('input[data-gram]');
+  const [group, key] = input.dataset.gram.split('|');
+  const g = parseFloat(input.value) || 0;
+  if (g <= 0) { toast('Poné los gramos', true); return; }
+  const base = group === 'P' ? NUT_PROT[key] : NUT_CARB[key];
+  addPlateItem(`${key} ${g} g`, base.map(x => x * g / 100));
+}
+function addManualItem() {
+  const name = (document.getElementById('man-name').value || '').trim();
+  const m = ['man-k', 'man-p', 'man-c', 'man-g'].map(id => parseFloat(document.getElementById(id).value) || 0);
+  if (!name) { toast('Ponele un nombre', true); return; }
+  saveCustomFood(name, m);
+  addPlateItem(name, m);
+}
+function savePlate() {
+  if (!plateItems.length) { toast('Agregá al menos un ingrediente', true); return; }
+  const t = plateTotals();
+  const a = getMeals();
+  a.push({ t: mealType, n: plateItems.map(it => it.name).join(' + '), m: t, items: plateItems.map(it => ({ name: it.name, m: it.m })) });
+  setMealsLS(a); closeAddMeal(); renderNutritionCard();
 }
 
 function renderAddMealBody() {
   const body = document.getElementById('add-meal-body'); if (!body) return;
-  const chips = ['Desayuno','Almuerzo','Cena','Snack'].map(t => {
+  if (pickerMode) { body.innerHTML = pickerHTML(); return; }
+  const chips = ['Desayuno', 'Almuerzo', 'Cena', 'Snack'].map(t => {
     const on = t === mealType;
-    return `<button class="meal-type-chip" data-mt="${t}" onclick="setMealType('${t}')" style="border:none;border-radius:999px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer;background:${on ? 'var(--accent)' : 'var(--surface-2)'};color:${on ? '#0a0a0a' : 'var(--text-2)'}">${t}</button>`;
+    return `<button onclick="setMealType('${t}')" style="border:none;border-radius:999px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer;background:${on ? 'var(--accent)' : 'var(--surface-2)'};color:${on ? '#0a0a0a' : 'var(--text-2)'}">${t}</button>`;
   }).join('');
-  const quick = NUT_QUICK.map((q, i) => `
-    <button onclick="addQuickMeal(${i})" style="text-align:left;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;cursor:pointer">
-      <div style="color:var(--text);font-weight:700;font-size:13px">${q.n}</div>
-      <div style="color:var(--text-3);font-size:11px">${q.m[0]} kcal · ${q.m[1]} P</div>
-    </button>`).join('');
-  const opts = (obj) => Object.keys(obj).map(k => `<option value="${k}">${k}</option>`).join('');
-  const selStyle = 'flex:1;min-width:0;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:10px;font-size:14px';
-  const gStyle = 'width:72px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:10px;font-size:14px;text-align:right';
+  const atajos = NUT_ATAJOS.map((a, i) => `<button onclick="addAtajo(${i})" style="background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:600;color:var(--text);cursor:pointer">+ ${a.n}</button>`).join('');
+  const T = plateTotals();
+  const items = plateItems.length ? plateItems.map((it, i) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid var(--border)">
+      <span style="font-size:14px;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.name}</span>
+      <span style="display:flex;align-items:center;gap:10px;flex-shrink:0"><span style="color:var(--text-3);font-size:12px">${Math.round(it.m[0])} · ${Math.round(it.m[1])} P</span><button onclick="removePlateItem(${i})" style="background:none;border:none;color:var(--text-3);font-size:18px;line-height:1;cursor:pointer">×</button></span>
+    </div>`).join('') : `<div style="color:var(--text-3);font-size:13px;padding:10px 0;border-top:1px solid var(--border)">Tu plato está vacío. Usá un atajo o agregá ingredientes.</div>`;
   body.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <h2 style="margin:0">Agregar comida</h2>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h2 style="margin:0">Armar comida</h2>
       <button onclick="closeAddMeal()" style="background:none;border:none;color:var(--text-3);font-size:26px;line-height:1;cursor:pointer">×</button>
     </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px">${chips}</div>
-    <div style="color:var(--text-3);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Platos rápidos · 1 toque</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px">${quick}</div>
-    <div style="text-align:center;color:var(--text-3);font-size:12px;margin-bottom:14px">— o armá a medida —</div>
-    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center"><select id="nm-prot" style="${selStyle}">${opts(NUT_PROT)}</select><input id="nm-protg" type="number" inputmode="numeric" value="200" style="${gStyle}"><span style="color:var(--text-3);font-size:13px">g</span></div>
-    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center"><select id="nm-carb" style="${selStyle}">${opts(NUT_CARB)}</select><input id="nm-carbg" type="number" inputmode="numeric" value="150" style="${gStyle}"><span style="color:var(--text-3);font-size:13px">g</span></div>
-    <div style="margin-bottom:14px"><select id="nm-veg" style="${selStyle};width:100%">${opts(NUT_VEG)}</select></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface-2);border-radius:12px;padding:11px 14px;margin-bottom:16px">
-      <span style="color:var(--text-3);font-size:12px">Esta comida</span>
-      <span id="nm-preview" style="color:var(--text);font-weight:700;font-size:13px">—</span>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${chips}</div>
+    <div style="color:var(--text-3);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Atajos</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">${atajos}</div>
+    <div style="background:var(--surface-2);border-radius:12px;padding:6px 14px 14px;margin-bottom:14px">
+      <div style="color:var(--text-3);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding-top:10px">Tu plato</div>
+      ${items}
+      <button onclick="setPicker('list')" style="width:100%;margin-top:12px;background:none;border:1px dashed var(--border);border-radius:10px;color:var(--accent-2);padding:10px;font-weight:700;font-size:13px;cursor:pointer">+ Agregar ingrediente</button>
+      <div style="display:flex;justify-content:space-between;margin-top:14px;font-weight:800;font-size:15px;color:var(--text)"><span>Total</span><span>${T[0]} kcal · ${T[1]} P</span></div>
+      <div style="text-align:right;color:var(--text-3);font-size:12px">${T[2]} C · ${T[3]} G</div>
     </div>
-    <button onclick="saveCustomMeal()" style="width:100%;background:var(--accent);color:#0a0a0a;border:none;border-radius:12px;padding:13px;font-weight:800;font-size:15px;cursor:pointer">Guardar comida</button>`;
-  ['nm-prot','nm-protg','nm-carb','nm-carbg','nm-veg'].forEach(id => {
-    const e = document.getElementById(id);
-    e.addEventListener('input', nmPreview); e.addEventListener('change', nmPreview);
-  });
-  nmPreview();
+    <button onclick="savePlate()" style="width:100%;background:var(--accent);color:#0a0a0a;border:none;border-radius:12px;padding:13px;font-weight:800;font-size:15px;cursor:pointer">Guardar comida</button>`;
 }
 
-function nmCalc() {
-  const p = NUT_PROT[document.getElementById('nm-prot').value], pg = parseFloat(document.getElementById('nm-protg').value) || 0;
-  const c = NUT_CARB[document.getElementById('nm-carb').value], cg = parseFloat(document.getElementById('nm-carbg').value) || 0;
-  const v = NUT_VEG[document.getElementById('nm-veg').value];
-  const t = [0,0,0,0];
-  for (let i = 0; i < 4; i++) t[i] = p[i] * pg / 100 + c[i] * cg / 100 + v[i];
-  return t.map(Math.round);
+function gramRow(group, key, m, tag) {
+  return `<div style="padding:9px 0;border-top:1px solid var(--border)">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <div style="min-width:0"><div style="font-size:14px">${key}</div><div style="font-size:11px;color:var(--text-3)">${m[0]} kcal · ${m[1]} P /100g ${tag}</div></div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <input data-gram="${group}|${key}" type="number" inputmode="numeric" value="200" style="width:60px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px;font-size:13px;text-align:right">
+        <span style="color:var(--text-3);font-size:12px">g</span>
+        <button onclick="addGramFromRow(this)" style="background:var(--accent);color:#0a0a0a;border:none;border-radius:8px;font-weight:800;font-size:16px;line-height:1;padding:6px 11px;cursor:pointer">+</button>
+      </div>
+    </div>
+  </div>`;
 }
-function nmPreview() { const t = nmCalc(); document.getElementById('nm-preview').textContent = `${t[0]} kcal · ${t[1]} P · ${t[2]} C · ${t[3]} G`; }
-function addQuickMeal(i) { const q = NUT_QUICK[i], a = getMeals(); a.push({ t: mealType, n: q.n, m: q.m.slice() }); setMealsLS(a); closeAddMeal(); renderNutritionCard(); }
-function saveCustomMeal() {
-  const pn = document.getElementById('nm-prot').value, pg = parseFloat(document.getElementById('nm-protg').value) || 0;
-  const cn = document.getElementById('nm-carb').value, cg = parseFloat(document.getElementById('nm-carbg').value) || 0;
-  const vn = document.getElementById('nm-veg').value;
-  const t = nmCalc();
-  const parts = [pn + ' ' + pg + ' g'];
-  if (cn !== 'Sin carbo' && cg > 0) parts.push(cn + ' ' + cg + ' g');
-  if (vn !== 'Sin verdura') parts.push(vn);
-  const a = getMeals();
-  a.push({ t: mealType, n: parts.join(' + '), m: t });
-  setMealsLS(a); closeAddMeal(); renderNutritionCard();
+function fixedRow(key, m) {
+  return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--border)">
+    <div style="min-width:0"><div style="font-size:14px">${key}</div><div style="font-size:11px;color:var(--text-3)">${m[0]} kcal · ${m[1]} P</div></div>
+    <button onclick="addFixedItem(&quot;${key}&quot;)" style="background:var(--accent);color:#0a0a0a;border:none;border-radius:8px;font-weight:800;font-size:16px;line-height:1;padding:6px 12px;cursor:pointer">+</button>
+  </div>`;
+}
+function pickerHTML() {
+  const cats = ['Proteínas', 'Carbos', 'Fijos', 'Mis ingredientes', 'Manual'];
+  const catChips = cats.map(c => {
+    const on = c === pickerCat;
+    return `<button onclick="setPickerCat('${c}')" style="border:none;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;background:${on ? 'var(--accent)' : 'var(--surface-2)'};color:${on ? '#0a0a0a' : 'var(--text-2)'}">${c}</button>`;
+  }).join('');
+  let listHTML = '';
+  if (pickerCat === 'Proteínas') {
+    listHTML = Object.keys(NUT_PROT).map(k => gramRow('P', k, NUT_PROT[k], 'crudo')).join('');
+  } else if (pickerCat === 'Carbos') {
+    listHTML = Object.keys(NUT_CARB).map(k => gramRow('C', k, NUT_CARB[k], 'cocido')).join('');
+  } else if (pickerCat === 'Fijos') {
+    listHTML = Object.keys(NUT_FIXED).map(k => fixedRow(k, NUT_FIXED[k])).join('');
+  } else if (pickerCat === 'Mis ingredientes') {
+    const cf = getCustomFoods();
+    listHTML = cf.length ? cf.map(f => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--border)"><div style="min-width:0"><div style="font-size:14px">${f.name}</div><div style="font-size:11px;color:var(--text-3)">${f.m[0]} kcal · ${f.m[1]} P</div></div><button onclick="addCustomFromList(&quot;${f.name}&quot;)" style="background:var(--accent);color:#0a0a0a;border:none;border-radius:8px;font-weight:800;font-size:16px;line-height:1;padding:6px 12px;cursor:pointer">+</button></div>`).join('') : `<div style="color:var(--text-3);font-size:13px;padding:12px 0">Todavía no guardaste ingredientes. Cargá uno en "Manual" y queda acá para reusar.</div>`;
+  } else {
+    const inp = 'background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:11px;font-size:14px';
+    listHTML = `<div style="padding-top:8px">
+      <input id="man-name" placeholder="Nombre (ej. Granola)" style="${inp};width:100%;margin-bottom:10px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <input id="man-k" type="number" inputmode="numeric" placeholder="kcal" style="${inp}">
+        <input id="man-p" type="number" inputmode="numeric" placeholder="Proteína g" style="${inp}">
+        <input id="man-c" type="number" inputmode="numeric" placeholder="Carbos g" style="${inp}">
+        <input id="man-g" type="number" inputmode="numeric" placeholder="Grasa g" style="${inp}">
+      </div>
+      <button onclick="addManualItem()" style="width:100%;background:var(--accent);color:#0a0a0a;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:14px;cursor:pointer">Agregar y guardar</button>
+      <div style="color:var(--text-3);font-size:11px;text-align:center;margin-top:8px">Queda guardado en "Mis ingredientes" para reusar.</div>
+    </div>`;
+  }
+  return `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <button onclick="setPicker(null)" style="background:none;border:none;color:var(--accent-2);font-size:14px;font-weight:700;cursor:pointer">‹ Volver</button>
+      <h2 style="margin:0;font-size:18px">Agregar ingrediente</h2>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${catChips}</div>
+    <div>${listHTML}</div>`;
 }
 
 function connectWhoop() {
