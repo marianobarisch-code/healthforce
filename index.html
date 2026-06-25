@@ -3137,6 +3137,40 @@ function whoopDate(d) {
   return d ? new Date(d + 'T00:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }) : '—';
 }
 
+// ===== Sync de nutrición + pasos con Supabase (tablas meal_days / daily_steps) =====
+async function syncNutritionStepsFromCloud() {
+  if (!currentSession) return;
+  const uid = currentSession.user.id;
+  try {
+    const [{ data: steps }, { data: meals }] = await Promise.all([
+      sb.from('daily_steps').select('date, steps').eq('user_id', uid),
+      sb.from('meal_days').select('date, meals').eq('user_id', uid)
+    ]);
+    const cloudSteps = new Set((steps || []).map(r => r.date));
+    const cloudMeals = new Set((meals || []).map(r => r.date));
+    (steps || []).forEach(r => { if (r.steps != null) localStorage.setItem('hf_steps_' + r.date, String(r.steps)); });
+    (meals || []).forEach(r => { if (r.meals) localStorage.setItem('hf_meals_' + r.date, JSON.stringify(r.meals)); });
+    // Backfill: subir lo que está local pero no en la nube (migración de datos viejos)
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      let m = k && k.match(/^hf_steps_(\d{4}-\d{2}-\d{2})$/);
+      if (m && !cloudSteps.has(m[1])) { const v = parseInt(localStorage.getItem(k) || '0', 10) || 0; if (v > 0) pushSteps(m[1], v); }
+      m = k && k.match(/^hf_meals_(\d{4}-\d{2}-\d{2})$/);
+      if (m && !cloudMeals.has(m[1])) { try { const arr = JSON.parse(localStorage.getItem(k) || '[]'); if (arr.length) pushMeals(m[1], arr); } catch (e) {} }
+    }
+  } catch (e) { console.warn('sync nutrición/pasos falló (¿corriste la migración SQL?)', e); }
+}
+function pushSteps(dateStr, steps) {
+  if (!currentSession) return;
+  sb.from('daily_steps').upsert({ user_id: currentSession.user.id, date: dateStr, steps: steps, updated_at: new Date().toISOString() }, { onConflict: 'user_id,date' })
+    .then(({ error }) => { if (error) console.warn('pushSteps', error.message); });
+}
+function pushMeals(dateStr, mealsArr) {
+  if (!currentSession) return;
+  sb.from('meal_days').upsert({ user_id: currentSession.user.id, date: dateStr, meals: mealsArr, updated_at: new Date().toISOString() }, { onConflict: 'user_id,date' })
+    .then(({ error }) => { if (error) console.warn('pushMeals', error.message); });
+}
+
 async function loadWhoopState() {
   if (!currentSession) return;
   const uid = currentSession.user.id;
@@ -3255,9 +3289,12 @@ function renderTodayActivities() {
   } else {
     inner = items.map((a, i) => {
       const done = doneIds.has(a.type_id);
+      const isPast = ds < todayStr();
       const status = done
         ? `<span style="margin-left:auto;display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--success)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>`
-        : `<span style="margin-left:auto;color:var(--gold);font-size:12px;font-weight:700;border:1px solid var(--gold);border-radius:999px;padding:3px 10px">Pendiente</span>`;
+        : isPast
+          ? `<span style="margin-left:auto;color:var(--text-3);font-size:12px;font-weight:700;border:1px solid var(--border);border-radius:999px;padding:3px 10px">No realizado</span>`
+          : `<span style="margin-left:auto;color:var(--gold);font-size:12px;font-weight:700;border:1px solid var(--gold);border-radius:999px;padding:3px 10px">Pendiente</span>`;
       return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;${i < items.length - 1 ? 'border-bottom:1px solid var(--border)' : ''}">
         <span style="font-size:18px">${ICONS[a.category] || '✅'}</span>
         <span style="color:var(--text);font-size:14px;font-weight:600">${a.name}</span>${status}</div>`;
@@ -3278,6 +3315,7 @@ function saveSteps() {
   const i = document.getElementById('steps-input');
   const v = Math.max(0, parseInt(i ? i.value : '0', 10) || 0);
   localStorage.setItem(stepsKey(), String(v));
+  pushSteps(viewDate || todayStr(), v);
   stepsEditing = false;
   renderStepsCard();
 }
@@ -3338,7 +3376,7 @@ let mealType = 'Snack';
 
 function mealsKey() { return 'hf_meals_' + (viewDate || todayStr()); }
 function getMeals() { try { return JSON.parse(localStorage.getItem(mealsKey()) || '[]'); } catch (e) { return []; } }
-function setMealsLS(a) { localStorage.setItem(mealsKey(), JSON.stringify(a)); }
+function setMealsLS(a) { localStorage.setItem(mealsKey(), JSON.stringify(a)); pushMeals(viewDate || todayStr(), a); }
 function nutTotals(a) { const t = [0,0,0,0]; (a || []).forEach(x => { for (let i = 0; i < 4; i++) t[i] += x.m[i]; }); return t.map(Math.round); }
 
 function renderNutritionCard() {
@@ -3794,6 +3832,7 @@ async function init() {
     showAppScreens();
     await syncFromServer();
     await retryPendingSyncs();
+    await syncNutritionStepsFromCloud();
     await loadWhoopState();
     await loadWhoopReview();
     await loadGcalState();
