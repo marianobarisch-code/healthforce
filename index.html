@@ -493,6 +493,10 @@
   <div class="modal" id="add-meal-body"></div>
 </div>
 
+<div class="modal-overlay" id="modal-change-plan" onclick="if(event.target===this)closeModal('modal-change-plan')">
+  <div class="modal" id="change-plan-body"></div>
+</div>
+
 <div class="modal-overlay" id="modal-ex-history" onclick="if(event.target===this)closeModal('modal-ex-history')">
   <div class="modal" id="ex-history-body"></div>
 </div>
@@ -3274,41 +3278,86 @@ function renderWhoopDashboard() {
 }
 
 // Actividad del día (viewDate): lo agendado con estado pendiente o tic verde circular
+// Plan del día: override por fecha (hf_plan_<fecha>) o el split por weekday
+function planKey(ds) { return 'hf_plan_' + ds; }
+function getDayPlan(ds) {
+  const ov = localStorage.getItem(planKey(ds));
+  if (ov) { try { const a = JSON.parse(ov); if (Array.isArray(a)) return a; } catch (e) {} }
+  const wd = getWeekday(new Date(ds + 'T00:00:00'));
+  return templatesForWeekday(wd).filter(t => t.category !== 'rest').map(t => t.type_id);
+}
+function setDayPlan(ds, typeIds) { localStorage.setItem(planKey(ds), JSON.stringify(typeIds)); }
+
+let changePlanDate = null, changePlanSel = [];
+function openChangePlan(ds) {
+  changePlanDate = ds;
+  changePlanSel = getDayPlan(ds).slice();
+  document.getElementById('modal-change-plan').classList.add('open');
+  renderChangePlanBody();
+}
+function toggleChangePlanType(id) {
+  const i = changePlanSel.indexOf(id);
+  if (i >= 0) changePlanSel.splice(i, 1); else changePlanSel.push(id);
+  renderChangePlanBody();
+}
+function saveChangePlan() {
+  setDayPlan(changePlanDate, changePlanSel);
+  closeModal('modal-change-plan');
+  renderHome();
+}
+function renderChangePlanBody() {
+  const body = document.getElementById('change-plan-body'); if (!body) return;
+  const types = DAY_TEMPLATES.filter(t => !t.legacy && t.type_id !== 'rest');
+  const chips = types.map(t => {
+    const on = changePlanSel.includes(t.type_id);
+    return `<button onclick="toggleChangePlanType('${t.type_id}')" style="border:1px solid ${on ? 'var(--accent)' : 'var(--border)'};border-radius:10px;padding:11px 12px;font-weight:700;font-size:13px;cursor:pointer;text-align:left;background:${on ? 'var(--accent)' : 'var(--surface-2)'};color:${on ? '#0a0a0a' : 'var(--text-2)'}">${on ? '✓ ' : ''}${t.name}</button>`;
+  }).join('');
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><h2 style="margin:0">¿Qué entrenás?</h2><button onclick="closeModal('modal-change-plan')" style="background:none;border:none;color:var(--text-3);font-size:26px;line-height:1;cursor:pointer">×</button></div>
+    <div style="color:var(--text-3);font-size:12px;margin-bottom:14px">${capFirst(dateLabel(changePlanDate))} · tocá para sumar o sacar</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">${chips}</div>
+    <button onclick="saveChangePlan()" style="width:100%;background:var(--accent);color:#0a0a0a;border:none;border-radius:12px;padding:13px;font-weight:800;font-size:15px;cursor:pointer">Guardar</button>`;
+}
+
 function renderTodayActivities() {
   const el = document.getElementById('today-activities');
   if (!el) return;
   const ICONS = { strength: '🏋️', cardio_intervals: '⚡', cardio_steady: '🏃', sport: '🎾', mobility: '🧘', rest: '😴' };
   const ds = viewDate || todayStr();
-  const wd = getWeekday(new Date(ds + 'T00:00:00'));
-  const planned = templatesForWeekday(wd).filter(t => t.category !== 'rest');
+  const planIds = getDayPlan(ds);
   const done = workoutsForDate(ds);
   const doneIds = new Set(done.map(w => w.type_id));
-  let items = planned.map(t => ({ type_id: t.type_id, name: t.name, category: t.category }));
+  let items = planIds.map(id => { const t = DAY_TEMPLATES.find(tp => tp.type_id === id); return t ? { type_id: id, name: t.name, category: t.category } : null; }).filter(Boolean);
   done.forEach(w => {
     if (!items.some(it => it.type_id === w.type_id)) {
       const t = DAY_TEMPLATES.find(tp => tp.type_id === w.type_id);
       items.push({ type_id: w.type_id, name: t ? t.name : (w.name || w.type_id), category: t ? t.category : '' });
     }
   });
+  const isPast = ds < todayStr();
   let inner;
   if (!items.length) {
-    inner = `<div style="color:var(--text-3);font-size:13px;padding:8px 0">No tenés nada agendado este día</div>`;
+    inner = `<div style="color:var(--text-3);font-size:13px;padding:8px 0">Día de descanso. Tocá "Cambiar" si querés hacer algo.</div>`;
   } else {
     inner = items.map((a, i) => {
-      const done = doneIds.has(a.type_id);
-      const isPast = ds < todayStr();
-      const status = done
-        ? `<span style="margin-left:auto;display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--success)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>`
+      const isDone = doneIds.has(a.type_id);
+      const status = isDone
+        ? `<span style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--success)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>`
         : isPast
-          ? `<span style="margin-left:auto;color:var(--text-3);font-size:12px;font-weight:700;border:1px solid var(--border);border-radius:999px;padding:3px 10px">No realizado</span>`
-          : `<span style="margin-left:auto;color:var(--gold);font-size:12px;font-weight:700;border:1px solid var(--gold);border-radius:999px;padding:3px 10px">Pendiente</span>`;
-      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;${i < items.length - 1 ? 'border-bottom:1px solid var(--border)' : ''}">
+          ? `<span style="color:var(--text-3);font-size:12px;font-weight:700;border:1px solid var(--border);border-radius:999px;padding:3px 10px">No realizado</span>`
+          : `<span style="color:var(--gold);font-size:12px;font-weight:700;border:1px solid var(--gold);border-radius:999px;padding:3px 10px">Pendiente</span>`;
+      return `<div onclick="openDay('${a.type_id}','${ds}')" style="display:flex;align-items:center;gap:10px;padding:11px 0;cursor:pointer;${i < items.length - 1 ? 'border-bottom:1px solid var(--border)' : ''}">
         <span style="font-size:18px">${ICONS[a.category] || '✅'}</span>
-        <span style="color:var(--text);font-size:14px;font-weight:600">${a.name}</span>${status}</div>`;
+        <span style="color:var(--text);font-size:14px;font-weight:600;flex:1;min-width:0">${a.name}</span>
+        ${status}
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" stroke-width="3" style="flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg></div>`;
     }).join('');
   }
   el.innerHTML = `<div style="margin-bottom:16px">
-    <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Actividad</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <span style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Actividad</span>
+      <button onclick="openChangePlan('${ds}')" style="background:none;border:none;color:var(--accent-2);font-size:13px;font-weight:600;cursor:pointer">Cambiar</button>
+    </div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:4px 14px">${inner}</div>
   </div>`;
 }
@@ -3347,9 +3396,9 @@ function renderStepsCard() {
   el.innerHTML = `<div style="margin-bottom:16px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <span style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Pasos</span>
-      ${stepsEditing ? '' : `<button onclick="editSteps()" style="background:none;border:none;color:var(--accent-2);font-size:13px;font-weight:600;cursor:pointer">Editar</button>`}
+      ${stepsEditing ? '' : `<span style="color:var(--text-3);font-size:14px">✎</span>`}
     </div>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
+    <div ${stepsEditing ? '' : 'onclick="editSteps()"'} style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;cursor:${stepsEditing ? 'default' : 'pointer'}">
       ${body}
       <div style="display:flex;gap:4px;margin-top:12px">${squares}</div>
     </div>
@@ -3449,11 +3498,13 @@ function renderNutritionSummary() {
   el.innerHTML = `<div style="margin-bottom:16px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <span style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Nutrición</span>
-      <button onclick="showScreen('nutrition')" style="background:none;border:none;color:var(--accent-2);font-size:13px;font-weight:600;cursor:pointer">Ver →</button>
     </div>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
-      ${bar('Proteína', T[1], PROT_GOAL, 'g', 'var(--accent)')}
-      ${bar('Calorías', T[0], KCAL_GOAL, 'kcal', 'var(--accent-3)')}
+    <div onclick="showScreen('nutrition')" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;cursor:pointer;display:flex;align-items:center;gap:12px">
+      <div style="flex:1;min-width:0">
+        ${bar('Proteína', T[1], PROT_GOAL, 'g', 'var(--accent)')}
+        ${bar('Calorías', T[0], KCAL_GOAL, 'kcal', 'var(--accent-3)')}
+      </div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" stroke-width="3" style="flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
     </div>
   </div>`;
 }
