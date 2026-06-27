@@ -601,13 +601,13 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 
 const DAY_TEMPLATES = [
   { type_id: 'upper-a', name: 'Upper A', short: 'Upper A', desc: 'Empuje / horizontal', category: 'strength', weekday: 1, muscles: ['Pecho','Espalda','Hombros','Brazos'] },
-  { type_id: 'upper-b', name: 'Upper B', short: 'Upper B', desc: 'Tracción / vertical', category: 'strength', weekday: 5, muscles: ['Espalda','Pecho','Hombros','Brazos'] },
+  { type_id: 'upper-b', name: 'Upper B', short: 'Upper B', desc: 'Tracción / vertical', category: 'strength', weekday: 4, muscles: ['Espalda','Pecho','Hombros','Brazos'] },
   { type_id: 'day3', name: 'Legs', short: 'Legs', desc: 'Funcional, no hipertrofia', category: 'strength', weekday: 3, muscles: ['Piernas','Glúteos','Pantorrillas'] },
   { type_id: 'natacion', name: 'Swimming', short: 'Swimming', desc: 'Recuperación activa', category: 'cardio_steady', weekday: null, muscles: ['Cardio'] },
   { type_id: 'padel', name: 'Pádel', short: 'Pádel', desc: 'Intermitente alta intensidad', category: 'sport', weekday: 5, muscles: ['Cardio'] },
   { type_id: 'z2', name: 'Running Z2', short: 'Z2', desc: 'Base aeróbica · ritmo conversacional', category: 'cardio_steady', weekday: 2, muscles: ['Cardio'] },
   { type_id: 'sprints', name: 'Sprints', short: 'Sprints', desc: 'VO2max + capacidad anaeróbica', category: 'cardio_intervals', weekday: 6, muscles: ['Cardio'] },
-  { type_id: 'mobility', name: 'Mobility', short: 'Mobility', desc: 'Movilidad y activación ligera', category: 'mobility', weekday: 4, muscles: [] },
+  { type_id: 'mobility', name: 'Mobility', short: 'Mobility', desc: 'Movilidad y activación ligera', category: 'mobility', weekday: null, muscles: [] },
   { type_id: 'rest', name: 'Full Rest', short: 'Rest', desc: 'Descanso completo', category: 'rest', weekday: 7, muscles: [] },
   { type_id: 'day1', name: 'Chest, Shoulder, Biceps', short: 'Chest, Shoulder, Biceps', desc: 'Empuje vertical + horizontal alto', category: 'strength', weekday: null, legacy: true, muscles: ['Pecho','Hombros','Bíceps'] },
   { type_id: 'day2', name: 'Back, Shoulder, Triceps', short: 'Back, Shoulder, Triceps', desc: 'Tracción + extensión codo', category: 'strength', weekday: null, legacy: true, muscles: ['Espalda','Hombros','Tríceps'] },
