@@ -602,6 +602,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 const DAY_TEMPLATES = [
   { type_id: 'upper-a', name: 'Upper A', short: 'Upper A', desc: 'Empuje / horizontal', category: 'strength', weekday: 1, muscles: ['Pecho','Espalda','Hombros','Brazos'] },
   { type_id: 'upper-b', name: 'Upper B', short: 'Upper B', desc: 'Tracción / vertical', category: 'strength', weekday: 4, muscles: ['Espalda','Pecho','Hombros','Brazos'] },
+  { type_id: 'free', name: 'Entreno libre', short: 'Libre', desc: 'Armá tus ejercicios desde cero', category: 'strength', weekday: null, muscles: [] },
   { type_id: 'day3', name: 'Legs', short: 'Legs', desc: 'Funcional, no hipertrofia', category: 'strength', weekday: 3, muscles: ['Piernas','Glúteos','Pantorrillas'] },
   { type_id: 'natacion', name: 'Swimming', short: 'Swimming', desc: 'Recuperación activa', category: 'cardio_steady', weekday: null, muscles: ['Cardio'] },
   { type_id: 'padel', name: 'Pádel', short: 'Pádel', desc: 'Intermitente alta intensidad', category: 'sport', weekday: 5, muscles: ['Cardio'] },
@@ -616,7 +617,7 @@ const DAY_TEMPLATES = [
 
 // Foto representativa por tipo de entrenamiento (hosteadas en /photos)
 const WORKOUT_PHOTOS = {
-  'upper-a': 'strength', 'upper-b': 'strength', 'day1': 'strength', 'day2': 'strength', 'day4': 'strength',
+  'free': 'strength', 'upper-a': 'strength', 'upper-b': 'strength', 'day1': 'strength', 'day2': 'strength', 'day4': 'strength',
   'day3': 'legs', 'sprints': 'sprints', 'z2': 'z2', 'padel': 'padel', 'natacion': 'natacion', 'mobility': 'mobility', 'rest': 'mobility'
 };
 function workoutPhoto(typeId) { return 'photos/' + (WORKOUT_PHOTOS[typeId] || 'strength') + '.jpg'; }
@@ -667,6 +668,7 @@ const EXERCISES_BASE = [
 ];
 
 const DAY_EXERCISES = {
+  free: [],
   day1: [
     { id: 'incline-db', sets: 3, reps: '8', rir: 'RIR 1-2', ss_group: null, notes: 'Pesado · clavicular' },
     { id: 'machine-ohp', sets: 3, reps: '8', rir: 'RIR 1-2', ss_group: null, notes: 'Pesado · ant + lat' },
@@ -1419,7 +1421,7 @@ function attachWeekSwipe() {
 }
 
 // ── Smart weekly suggestion engine ──
-const STRENGTH_TYPES = new Set(['upper-a','upper-b','day3','day1','day2','day4']);
+const STRENGTH_TYPES = new Set(['upper-a','upper-b','day3','day1','day2','day4','free']);
 const UPPER_TYPES = new Set(['upper-a','upper-b','day1','day2','day4']);
 const CATEGORY_LABELS = { strength: 'Gym', cardio_intervals: 'Cardio', cardio_steady: 'Cardio', sport: 'Deporte', mobility: 'Movilidad', rest: 'Descanso' };
 
@@ -2399,7 +2401,7 @@ async function saveManualExercise() {
   arr.push(ex);
   saveUserExercises(arr);
   closeModal('modal-add-exercise');
-  if (currentDraft && currentDayTypeId && currentDayTypeId.startsWith('day')) {
+  if (currentDraft && currentDayTypeId && STRENGTH_TYPES.has(currentDayTypeId)) {
     addExerciseToDay(id);
     toast(ok ? 'Ejercicio creado y agregado al día' : 'Agregado al día (sync pendiente)');
   } else {
@@ -2433,7 +2435,7 @@ function addExerciseToDay(exId) {
     saveDraft(currentDayTypeId, currentDayDate, currentDraft);
   }
   closeModal('modal-pick-exercise');
-  if (currentDraft.type_id && currentDraft.type_id.startsWith('day')) {
+  if (currentDraft.type_id && STRENGTH_TYPES.has(currentDraft.type_id)) {
     renderStrengthDay(currentDayTypeId, currentDayDate);
   }
 }
