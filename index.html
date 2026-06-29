@@ -474,7 +474,7 @@
   <div class="header"><h1>Ajustes</h1></div>
   <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Conexiones</div>
   <div id="gcal-card"></div>
-  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.06.27</strong></div>
+  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.06.29</strong></div>
 </section>
 
 <nav class="nav" id="bottom-nav">
@@ -620,7 +620,7 @@ const WORKOUT_PHOTOS = {
   'free': 'strength', 'upper-a': 'strength', 'upper-b': 'strength', 'day1': 'strength', 'day2': 'strength', 'day4': 'strength',
   'day3': 'legs', 'sprints': 'sprints', 'z2': 'z2', 'padel': 'padel', 'natacion': 'natacion', 'mobility': 'mobility', 'rest': 'mobility'
 };
-function workoutPhoto(typeId) { return 'photos/' + (WORKOUT_PHOTOS[typeId] || 'strength') + '.jpg'; }
+function workoutPhoto(typeId) { return 'photos/' + (WORKOUT_PHOTOS[typeId] || 'strength') + '.jpg?v=2'; }
 
 const EXERCISES_BASE = [
   { id: 'incline-db', name: 'Press inclinado mancuernas', primary: 'Pecho', secondary: ['Hombros'] },
