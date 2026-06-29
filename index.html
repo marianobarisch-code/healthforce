@@ -704,21 +704,21 @@ const DAY_EXERCISES = {
     { id: 'overhead-ext-rope', sets: 3, reps: '8', rir: 'casi al fallo', ss_group: 2, notes: 'SS2' }
   ],
   'upper-a': [
-    { id: 'bench-press', sets: 4, reps: '6-8', rir: 'RIR 1-2', ss_group: null, notes: 'Fuerte · pecho · descanso 2-3 min' },
-    { id: 'lat-pulldown', sets: 3, reps: '6-8', rir: 'RIR 1-2', ss_group: null, notes: 'Fuerte · dorsal vertical · descanso 2-3 min' },
-    { id: 'machine-ohp', sets: 3, reps: '10', rir: 'casi al fallo', ss_group: 1, notes: 'SS1 · press hombro' },
-    { id: 'technogym-row', sets: 3, reps: '10', rir: 'casi al fallo', ss_group: 1, notes: 'SS1 · espalda horizontal' },
-    { id: 'lateral-raise-db', sets: 3, reps: '12-15', rir: 'fallo', ss_group: 2, notes: 'SS2 · deltoide lateral' },
-    { id: 'incline-db-curl', sets: 3, reps: '10-12', rir: 'casi al fallo', ss_group: 2, notes: 'SS2 · bíceps' },
+    { id: 'bench-press', sets: 4, reps: '4-6', rir: 'RIR 1-2', ss_group: null, notes: 'FUERZA · pesado · descanso 2-3 min' },
+    { id: 'lat-pulldown', sets: 3, reps: '4-6', rir: 'RIR 1-2', ss_group: null, notes: 'FUERZA · pesado · descanso 2-3 min' },
+    { id: 'machine-ohp', sets: 3, reps: '8-12', rir: 'RIR 1', ss_group: 1, notes: 'SS1 · físico · press hombro' },
+    { id: 'technogym-row', sets: 3, reps: '8-12', rir: 'RIR 1', ss_group: 1, notes: 'SS1 · físico · espalda' },
+    { id: 'lateral-raise-db', sets: 3, reps: '12-15', rir: 'RIR 0-1', ss_group: 2, notes: 'SS2 · físico · deltoide lateral' },
+    { id: 'incline-db-curl', sets: 3, reps: '10-12', rir: 'RIR 0-1', ss_group: 2, notes: 'SS2 · físico · bíceps' },
     { id: 'pallof-press', sets: 3, reps: '10 por lado', rir: '', ss_group: null, notes: 'Core · cierre' }
   ],
   'upper-b': [
-    { id: 'pull-ups', sets: 4, reps: '6-8', rir: 'RIR 1-2', ss_group: null, notes: 'Fuerte · dorsal vertical · lastradas/asistidas · descanso 2-3 min' },
-    { id: 'incline-db', sets: 3, reps: '8', rir: 'RIR 1-2', ss_group: null, notes: 'Fuerte · pecho clavicular · descanso 2-3 min' },
-    { id: 'db-row-uni', sets: 3, reps: '10', rir: 'casi al fallo', ss_group: 1, notes: 'SS1 · espalda horizontal' },
-    { id: 'pec-deck', sets: 3, reps: '10-12', rir: 'casi al fallo', ss_group: 1, notes: 'SS1 · pecho contracción' },
-    { id: 'face-pull', sets: 3, reps: '12-15', rir: 'casi al fallo', ss_group: 2, notes: 'SS2 · hombro posterior' },
-    { id: 'dips-tricep', sets: 3, reps: '8-10', rir: 'casi al fallo', ss_group: 2, notes: 'SS2 · tríceps' },
+    { id: 'pull-ups', sets: 4, reps: '5-8', rir: 'RIR 1-2', ss_group: null, notes: 'FUERZA · primero y fresco · lastrar al llegar a 8' },
+    { id: 'incline-db', sets: 3, reps: '6-8', rir: 'RIR 1-2', ss_group: null, notes: 'FUERZA · pecho clavicular · descanso 2-3 min' },
+    { id: 'db-row-uni', sets: 3, reps: '8-12', rir: 'RIR 1', ss_group: 1, notes: 'SS1 · físico · espalda' },
+    { id: 'pec-deck', sets: 3, reps: '10-12', rir: 'RIR 0-1', ss_group: 1, notes: 'SS1 · físico · pecho' },
+    { id: 'face-pull', sets: 3, reps: '12-15', rir: 'RIR 0-1', ss_group: 2, notes: 'SS2 · físico · hombro posterior' },
+    { id: 'dips-tricep', sets: 3, reps: '8-12', rir: 'RIR 1', ss_group: 2, notes: 'SS2 · físico · tríceps' },
     { id: 'pallof-press', sets: 3, reps: '10 por lado', rir: '', ss_group: null, notes: 'Core · cierre' }
   ]
 };
@@ -864,56 +864,65 @@ function suggestNextSession(exId, prescribedReps, currentDateStr) {
   const sets = (last.sets[exId] || []).filter(s => s.weight && s.reps);
   if (!sets.length) return firstTime;
 
-  const lastWeight = +sets[0].weight;
-  const target = parseRepsRange(prescribedReps);
-  const completed = sets.every(s => +s.reps >= target.min);
-  const setsHit = sets.filter(s => +s.reps >= target.min).length;
-  const nearlyCompleted = setsHit >= sets.length - 1 && sets.every(s => +s.reps >= target.min - 2);
-
-  const rpes = sets.filter(s => s.rpe !== '' && s.rpe != null).map(s => +s.rpe);
-  const avgRpe = rpes.length ? rpes.reduce((a,b)=>a+b,0) / rpes.length : null;
-  const ago = daysAgo(last.date);
-  const refNote = `(hace ${ago}d)`;
   const u = loadUnit(exId);
+  const target = parseRepsRange(prescribedReps);          // { min, max }
+  const ago = daysAgo(last.date);
+  const ref = `(hace ${ago}d)`;
 
-  let weight = lastWeight;
-  let action = 'maintain';
-  let note = `Mantené ${lastWeight} ${u} ${refNote}`;
+  // Peso de trabajo = el más pesado usado; reps = la serie limitante a ese peso
+  const workWeight = Math.max(...sets.map(s => +s.weight));
+  const workSets = sets.filter(s => +s.weight === workWeight);
+  const minReps = Math.min(...workSets.map(s => +s.reps));
+  const rpes = workSets.filter(s => s.rpe !== '' && s.rpe != null).map(s => +s.rpe);
+  const avgRpe = rpes.length ? rpes.reduce((a, b) => a + b, 0) / rpes.length : null;
+  const rpeTxt = avgRpe !== null ? `RPE ${avgRpe.toFixed(1)}` : 'sin RPE';
 
-  if ((completed || nearlyCompleted) && avgRpe !== null) {
-    if (avgRpe <= 3) {
-      weight = getNextWeight(lastWeight, exId);
-      action = 'up';
-      note = `Cumpliste fácil (RPE ${avgRpe.toFixed(1)}) → subí a ${weight} ${u} ${refNote}`;
-    } else if (avgRpe <= 4) {
-      action = 'maintain';
-      note = `Buen esfuerzo (RPE ${avgRpe.toFixed(1)}) → mantené y buscá más reps ${refNote}`;
+  let weight = workWeight, action = 'maintain', note = '';
+
+  // Sin rango prescripto (ejercicio libre/extra): guiar solo por RPE
+  if (!target.min && !target.max) {
+    if (avgRpe !== null && avgRpe <= 3) {
+      weight = getNextWeight(workWeight, exId); action = 'up';
+      note = `Te sobró (${rpeTxt}) → podés subir a ${weight} ${u} ${ref}`;
     } else {
       action = 'maintain';
-      note = `Carga alta (RPE ${avgRpe.toFixed(1)}) → mantené, cuidá la técnica ${refNote}`;
+      note = `Repetí ${workWeight} ${u} (${rpeTxt}) ${ref}`;
     }
-  } else if ((completed || nearlyCompleted) && avgRpe === null) {
-    action = 'maintain';
-    note = `Cumpliste, pero sin RPE no sé si subir. Cargá el RPE de cada serie ${refNote}`;
-  } else {
-    // No llegó al objetivo de reps. ¿Ya venía fallando la sesión anterior? → bajar
-    const prev = getLastSessionForExercise(exId, last.date);
-    let prevFailed = false;
-    if (prev && prev.sets[exId]) {
-      const ps = (prev.sets[exId] || []).filter(s => s.weight && s.reps);
-      if (ps.length) prevFailed = !ps.every(s => +s.reps >= target.min);
-    }
-    const repsStr = sets.map(s => s.reps).join(', ');
-    if (prevFailed) {
-      weight = Math.max(0, Math.round((lastWeight - getIncrement(exId)) * 2) / 2);
-      action = 'down';
-      note = `2da vez sin llegar a ${target.min} reps → bajá a ${weight} ${u} ${refNote}`;
-    } else {
-      action = 'maintain';
-      note = `No llegaste a ${target.min} reps (${repsStr}) → repetí ${lastWeight} ${u} ${refNote}`;
-    }
+    return { weight, action, note, last_weight: workWeight, last_avg_rpe: avgRpe, last_date: last.date, last_sets: sets };
   }
-  return { weight, action, note, last_weight: lastWeight, last_avg_rpe: avgRpe, last_date: last.date, last_sets: sets };
+
+  const hitTop = minReps >= target.max;        // llegaste al tope del rango
+  const belowFloor = minReps < target.min;     // por debajo del piso
+
+  if (hitTop && (avgRpe === null || avgRpe <= 4)) {
+    // Doble progresión: tope del rango con margen → subí peso
+    weight = getNextWeight(workWeight, exId); action = 'up';
+    note = `Tope del rango (${minReps} reps, ${rpeTxt}) → subí a ${weight} ${u} ${ref}`;
+  } else if (avgRpe !== null && avgRpe <= 3 && !belowFloor) {
+    // Te sobró aunque no estés en el tope → subí (o sumá reps)
+    weight = getNextWeight(workWeight, exId); action = 'up';
+    note = `Te sobró (${rpeTxt}) → subí a ${weight} ${u}, o sumá reps hacia ${target.max} ${ref}`;
+  } else if (belowFloor) {
+    // Por debajo del piso del rango — solo bajar si grindeaste 2 veces seguidas
+    const prev = getLastSessionForExercise(exId, last.date);
+    let prevBelow = false;
+    if (prev && prev.sets[exId]) {
+      const ps = (prev.sets[exId] || []).filter(s => s.weight !== '' && s.weight != null && s.reps);
+      if (ps.length) { const pw = Math.max(...ps.map(s => +s.weight)); const pr = Math.min(...ps.filter(s => +s.weight === pw).map(s => +s.reps)); prevBelow = pw >= workWeight && pr < target.min; }
+    }
+    if ((avgRpe === null || avgRpe >= 5) && prevBelow) {
+      weight = Math.max(0, Math.round((workWeight - getIncrement(exId)) * 2) / 2); action = 'down';
+      note = `2da vez bajo ${target.min} reps al límite → bajá a ${weight} ${u} ${ref}`;
+    } else {
+      action = 'maintain';
+      note = `Quedaste en ${minReps} (piso ${target.min}) → repetí ${workWeight} ${u} y apuntá al rango ${ref}`;
+    }
+  } else {
+    // Dentro del rango → mantené peso y sumá reps (doble progresión)
+    action = 'maintain';
+    note = `Dentro del rango (${minReps} reps, ${rpeTxt}) → mantené ${workWeight} ${u} y sumá reps hacia ${target.max} ${ref}`;
+  }
+  return { weight, action, note, last_weight: workWeight, last_avg_rpe: avgRpe, last_date: last.date, last_sets: sets };
 }
 
 // Histórico de un ejercicio: últimas N sesiones con sets, RPE y 1RM estimado
