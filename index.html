@@ -474,7 +474,7 @@
   <div class="header"><h1>Ajustes</h1></div>
   <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Conexiones</div>
   <div id="gcal-card"></div>
-  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.06.29</strong></div>
+  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.07.28</strong></div>
 </section>
 
 <nav class="nav" id="bottom-nav">
@@ -600,14 +600,17 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 const DAY_TEMPLATES = [
-  { type_id: 'upper-a', name: 'Upper A', short: 'Upper A', desc: 'Empuje / horizontal', category: 'strength', weekday: 1, muscles: ['Pecho','Espalda','Hombros','Brazos'] },
-  { type_id: 'upper-b', name: 'Upper B', short: 'Upper B', desc: 'Tracción / vertical', category: 'strength', weekday: 4, muscles: ['Espalda','Pecho','Hombros','Brazos'] },
+  { type_id: 'tiron', name: 'Tirón', short: 'Tirón', desc: 'Espalda · dominadas pesadas', category: 'strength', weekday: 1, muscles: ['Espalda','Hombros','Bíceps'] },
+  { type_id: 'piernas', name: 'Piernas', short: 'Piernas', desc: 'Funcional · RDL progresivo', category: 'strength', weekday: 3, muscles: ['Piernas','Glúteos','Core'] },
+  { type_id: 'empuje', name: 'Empuje', short: 'Empuje', desc: 'Pecho y hombros · banca pesada', category: 'strength', weekday: 4, muscles: ['Pecho','Hombros','Tríceps'] },
+  { type_id: 'upper-a', name: 'Upper A', short: 'Upper A', desc: 'Empuje / horizontal', category: 'strength', weekday: null, legacy: true, muscles: ['Pecho','Espalda','Hombros','Brazos'] },
+  { type_id: 'upper-b', name: 'Upper B', short: 'Upper B', desc: 'Tracción / vertical', category: 'strength', weekday: null, legacy: true, muscles: ['Espalda','Pecho','Hombros','Brazos'] },
   { type_id: 'free', name: 'Entreno libre', short: 'Libre', desc: 'Armá tus ejercicios desde cero', category: 'strength', weekday: null, muscles: [] },
-  { type_id: 'day3', name: 'Legs', short: 'Legs', desc: 'Funcional, no hipertrofia', category: 'strength', weekday: 3, muscles: ['Piernas','Glúteos','Pantorrillas'] },
-  { type_id: 'natacion', name: 'Swimming', short: 'Swimming', desc: 'Recuperación activa', category: 'cardio_steady', weekday: null, muscles: ['Cardio'] },
-  { type_id: 'padel', name: 'Pádel', short: 'Pádel', desc: 'Intermitente alta intensidad', category: 'sport', weekday: 5, muscles: ['Cardio'] },
+  { type_id: 'day3', name: 'Legs', short: 'Legs', desc: 'Funcional, no hipertrofia', category: 'strength', weekday: null, legacy: true, muscles: ['Piernas','Glúteos','Pantorrillas'] },
+  { type_id: 'natacion', name: 'Swimming', short: 'Swimming', desc: 'Recuperación activa', category: 'cardio_steady', weekday: 6, muscles: ['Cardio'] },
+  { type_id: 'padel', name: 'Pádel', short: 'Pádel', desc: 'Intermitente alta intensidad', category: 'sport', weekday: null, muscles: ['Cardio'] },
   { type_id: 'z2', name: 'Running Z2', short: 'Z2', desc: 'Base aeróbica · ritmo conversacional', category: 'cardio_steady', weekday: 2, muscles: ['Cardio'] },
-  { type_id: 'sprints', name: 'Sprints', short: 'Sprints', desc: 'VO2max + capacidad anaeróbica', category: 'cardio_intervals', weekday: 6, muscles: ['Cardio'] },
+  { type_id: 'sprints', name: 'Sprints', short: 'Sprints', desc: 'VO2max + capacidad anaeróbica', category: 'cardio_intervals', weekday: 5, muscles: ['Cardio'] },
   { type_id: 'mobility', name: 'Mobility', short: 'Mobility', desc: 'Movilidad y activación ligera', category: 'mobility', weekday: null, muscles: [] },
   { type_id: 'rest', name: 'Full Rest', short: 'Rest', desc: 'Descanso completo', category: 'rest', weekday: 7, muscles: [] },
   { type_id: 'day1', name: 'Chest, Shoulder, Biceps', short: 'Chest, Shoulder, Biceps', desc: 'Empuje vertical + horizontal alto', category: 'strength', weekday: null, legacy: true, muscles: ['Pecho','Hombros','Bíceps'] },
@@ -618,6 +621,7 @@ const DAY_TEMPLATES = [
 // Foto representativa por tipo de entrenamiento (hosteadas en /photos)
 const WORKOUT_PHOTOS = {
   'free': 'strength', 'upper-a': 'strength', 'upper-b': 'strength', 'day1': 'strength', 'day2': 'strength', 'day4': 'strength',
+  'tiron': 'strength', 'empuje': 'strength', 'piernas': 'legs',
   'day3': 'legs', 'sprints': 'sprints', 'z2': 'z2', 'padel': 'padel', 'natacion': 'natacion', 'mobility': 'mobility', 'rest': 'mobility'
 };
 function workoutPhoto(typeId) { return 'photos/' + (WORKOUT_PHOTOS[typeId] || 'strength') + '.jpg?v=2'; }
@@ -664,11 +668,43 @@ const EXERCISES_BASE = [
   { id: 'copenhagen-plank', name: 'Copenhagen plank', primary: 'Core', secondary: [] },
   { id: 'pallof-press', name: 'Pallof press', primary: 'Core', secondary: [] },
   { id: 'hanging-leg-raise', name: 'Elevación piernas colgado', primary: 'Core', secondary: [] },
-  { id: 'cable-crunch', name: 'Crunch en polea', primary: 'Core', secondary: [] }
+  { id: 'cable-crunch', name: 'Crunch en polea', primary: 'Core', secondary: [] },
+  { id: 'atg-split-squat', name: 'ATG split squat', primary: 'Piernas', secondary: ['Glúteos'] },
+  { id: 'cossack-squat', name: 'Cossack squat', primary: 'Piernas', secondary: ['Aductores'] },
+  { id: 'dead-bug', name: 'Dead bug', primary: 'Core', secondary: [] },
+  { id: 'suitcase-carry', name: 'Suitcase carry', primary: 'Core', secondary: ['Antebrazos'] },
+  { id: 'side-plank', name: 'Plancha lateral', primary: 'Core', secondary: [] },
+  { id: 'tibialis-raise', name: 'Elevación tibial', primary: 'Pantorrillas', secondary: [] }
 ];
 
 const DAY_EXERCISES = {
   free: [],
+  tiron: [
+    { id: 'pull-ups', sets: 4, reps: '5-8', rir: 'RIR 1-2', ss_group: null, notes: 'FUERZA · único pesado · +7,5 kg · descanso 2-3 min' },
+    { id: 'technogym-row', sets: 3, reps: '8-10', rir: 'RIR 1-2', ss_group: null, notes: 'Moderado · horizontal (o remo unilateral)' },
+    { id: 'face-pull', sets: 3, reps: '12-15', rir: 'RIR 0-1', ss_group: 1, notes: 'SS1 · hombro posterior' },
+    { id: 'incline-db-curl', sets: 3, reps: '10-12', rir: 'RIR 0-1', ss_group: 1, notes: 'SS1 · bíceps' },
+    { id: 'dead-bug', sets: 3, reps: '10', rir: '', ss_group: 2, notes: 'Core A' },
+    { id: 'pallof-press', sets: 3, reps: '10 por lado', rir: '', ss_group: 2, notes: 'Core A' }
+  ],
+  empuje: [
+    { id: 'bench-press', sets: 4, reps: '4-6', rir: 'RIR 1-2', ss_group: null, notes: 'FUERZA · único pesado · descanso 2-3 min' },
+    { id: 'machine-ohp', sets: 3, reps: '8-10', rir: 'RIR 2 · moderado 70-80', ss_group: null, notes: 'Moderado, NO pesado · si molesta el hombro, saltear' },
+    { id: 'pec-deck', sets: 3, reps: '10-12', rir: 'RIR 1', ss_group: 1, notes: 'SS1 · apertura' },
+    { id: 'lateral-raise-db', sets: 3, reps: '12-15', rir: 'RIR 0-1', ss_group: 1, notes: 'SS1 · deltoide lateral · 10-12 kg' },
+    { id: 'overhead-ext-rope', sets: 3, reps: '10-12', rir: 'RIR 1', ss_group: null, notes: 'Tríceps' },
+    { id: 'suitcase-carry', sets: 3, reps: '30 m por lado', rir: '', ss_group: 2, notes: 'Core B · 24-28 kg' },
+    { id: 'side-plank', sets: 3, reps: '30 seg/lado', rir: '', ss_group: 2, notes: 'Core B' }
+  ],
+  piernas: [
+    { id: 'squat', sets: 2, reps: '8', rir: 'Técnica · 40-50 kg', ss_group: null, notes: 'Entrada en calor · pausa abajo · NO progresa en fase 1' },
+    { id: 'rdl', sets: 3, reps: '10-12', rir: 'RIR 2-3', ss_group: null, notes: 'EL EJE · arranque 45 kg · +5/sem solo si pasa la regla del día siguiente' },
+    { id: 'bulgarian-split', sets: 3, reps: '8 por pierna', rir: 'RIR 1-2', ss_group: null, notes: 'Unilateral · 14 kg' },
+    { id: 'atg-split-squat', sets: 2, reps: '8-10 por pierna', rir: 'peso corporal', ss_group: 1, notes: 'SS1 · rango largo · bajada 3 seg' },
+    { id: 'cossack-squat', sets: 2, reps: '6-8 por lado', rir: 'peso corporal', ss_group: 1, notes: 'SS1 · rango primero, peso después' },
+    { id: 'copenhagen-plank', sets: 2, reps: '20-30 seg/lado', rir: 'isométrica', ss_group: 2, notes: 'SS2 · cierre' },
+    { id: 'tibialis-raise', sets: 2, reps: '15', rir: '', ss_group: 2, notes: 'SS2 · tobillo' }
+  ],
   day1: [
     { id: 'incline-db', sets: 3, reps: '8', rir: 'RIR 1-2', ss_group: null, notes: 'Pesado · clavicular' },
     { id: 'machine-ohp', sets: 3, reps: '8', rir: 'RIR 1-2', ss_group: null, notes: 'Pesado · ant + lat' },
@@ -766,7 +802,7 @@ const EXERCISE_EQUIPMENT = {
 const INCREMENTS = { barbell: 5, dumbbells: 2, machine: 2.5, bodyweight: 2.5 };
 
 // Ejercicios donde la "carga" se mide en segundos en vez de kilos.
-const TIME_BASED_EXERCISES = new Set(['copenhagen-plank', 'plank', 'hyperextension']);
+const TIME_BASED_EXERCISES = new Set(['copenhagen-plank', 'plank', 'hyperextension', 'side-plank']);
 function isTimeBased(exId) { return TIME_BASED_EXERCISES.has(exId); }
 function loadUnit(exId) { return isTimeBased(exId) ? 'seg' : 'kg'; }
 function loadUnitLabel(exId) { return isTimeBased(exId) ? 'Tiempo (seg)' : 'Peso (kg)'; }
@@ -1330,8 +1366,9 @@ function showLogTrainingModal() {
   sel.innerHTML = DAY_TEMPLATES.filter(t => !t.legacy).map(t => `<option value="${t.type_id}">${t.name}</option>`).join('');
   const ds = viewDate || todayStr();
   document.getElementById('log-date').value = ds;
-  const tpls = templatesForWeekday(getWeekday(new Date(ds + 'T00:00:00')));
-  if (tpls.length) sel.value = tpls[0].type_id;
+  const plan = getDayPlan(ds);
+  if (plan.length) sel.value = plan[0];
+  else { const tpls = templatesForWeekday(getWeekday(new Date(ds + 'T00:00:00'))); if (tpls.length) sel.value = tpls[0].type_id; }
   document.getElementById('modal-log-training').classList.add('open');
 }
 function confirmLogTraining() {
@@ -1430,7 +1467,7 @@ function attachWeekSwipe() {
 }
 
 // ── Smart weekly suggestion engine ──
-const STRENGTH_TYPES = new Set(['upper-a','upper-b','day3','day1','day2','day4','free']);
+const STRENGTH_TYPES = new Set(['upper-a','upper-b','day3','day1','day2','day4','free','tiron','empuje','piernas']);
 const UPPER_TYPES = new Set(['upper-a','upper-b','day1','day2','day4']);
 const CATEGORY_LABELS = { strength: 'Gym', cardio_intervals: 'Cardio', cardio_steady: 'Cardio', sport: 'Deporte', mobility: 'Movilidad', rest: 'Descanso' };
 
@@ -1908,6 +1945,8 @@ function renderHome() {
 }
 
 function openToday() {
+  const head = queueHead();
+  if (head) { openDay(head, todayStr()); return; }
   const tpls = templatesForWeekday(getWeekday(new Date()));
   if (tpls.length) openDay(tpls[0].type_id, todayStr());
 }
@@ -3309,11 +3348,83 @@ function renderWhoopDashboard() {
 }
 
 // Actividad del día (viewDate): lo agendado con estado pendiente o tic verde circular
-// Plan del día: override por fecha (hf_plan_<fecha>) o el split por weekday
+// ═══ Cola semanal: el plan se corre si salteás un día ═══
+// La semana es una fila ordenada de sesiones. Si un día no entrenás, la sesión
+// te espera al día siguiente y todo se desplaza. Domingo resetea (lo pendiente
+// se pierde y se avisa el lunes). "Hecho" se deriva de los workouts logueados,
+// que ya sincronizan con Supabase → web y celu ven la misma cola.
+const WEEK_SEQUENCE = ['tiron', 'z2', 'piernas', 'empuje', 'sprints', 'natacion'];
+const QUEUE_START = '2026-07-27'; // lunes en que arrancó la cola (antes no hay avisos)
+function mondayOf(ds) { const d = new Date(ds + 'T00:00:00'); d.setDate(d.getDate() - (getWeekday(d) - 1)); return dateToISO(d); }
+function addDaysISO(ds, n) { const d = new Date(ds + 'T00:00:00'); d.setDate(d.getDate() + n); return dateToISO(d); }
+function weekLoggedTypes(monday) {
+  const end = addDaysISO(monday, 6);
+  return new Set(loadWorkouts().filter(w => w.date >= monday && w.date <= end && w.type_id !== 'rest').map(w => w.type_id));
+}
+function getSkipped(monday) { try { return JSON.parse(localStorage.getItem('hf_skipped_' + monday) || '[]'); } catch (e) { return []; } }
+function skipSession(typeId) {
+  const m = mondayOf(todayStr());
+  const s = getSkipped(m);
+  if (!s.includes(typeId)) s.push(typeId);
+  localStorage.setItem('hf_skipped_' + m, JSON.stringify(s));
+  toast('Salteado — pasamos a lo siguiente');
+  renderHome();
+}
+let queueGuardNote = '';
+function queuePending() {
+  const m = mondayOf(todayStr());
+  const done = weekLoggedTypes(m);
+  const sk = new Set(getSkipped(m));
+  let pending = WEEK_SEQUENCE.filter(t => !done.has(t) && !sk.has(t));
+  // Regla 48h piernas ↔ sprints: si lo próximo chocaría con lo de ayer, un día barato pasa al frente
+  queueGuardNote = '';
+  const yest = new Set(loadWorkouts().filter(w => w.date === addDaysISO(todayStr(), -1)).map(w => w.type_id));
+  const head = pending[0];
+  if ((head === 'sprints' && yest.has('piernas')) || (head === 'piernas' && (yest.has('sprints') || yest.has('padel')))) {
+    const ci = pending.findIndex(t => t === 'z2' || t === 'natacion');
+    if (ci > 0) {
+      const cheap = pending.splice(ci, 1)[0];
+      pending.unshift(cheap);
+      const n = id => (DAY_TEMPLATES.find(t => t.type_id === id) || {}).name || id;
+      queueGuardNote = `⇄ ${n(head)} se pospuso un día: regla de 48h con lo de ayer. Hoy: ${n(cheap)}.`;
+    }
+  }
+  return pending;
+}
+function queueHead() { const p = queuePending(); return p.length ? p[0] : null; }
+function weekNoticeHTML() {
+  const m = mondayOf(todayStr());
+  const prevM = addDaysISO(m, -7);
+  if (prevM < QUEUE_START) return '';
+  if (localStorage.getItem('hf_wknotice_' + m) === '1') return '';
+  const done = weekLoggedTypes(prevM);
+  const missed = WEEK_SEQUENCE.filter(t => !done.has(t));
+  if (!missed.length) return '';
+  const names = missed.map(id => (DAY_TEMPLATES.find(t => t.type_id === id) || {}).name || id).join(' · ');
+  return `<div style="background:var(--surface);border:1px solid var(--gold);border-radius:var(--radius);padding:13px 14px;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start">
+    <span style="font-size:16px">📋</span>
+    <div style="flex:1;min-width:0">
+      <div style="font-weight:800;font-size:13px;margin-bottom:3px">La semana pasada quedó sin hacer:</div>
+      <div style="color:var(--text-2);font-size:13px">${names}</div>
+      <div style="color:var(--text-3);font-size:12px;margin-top:4px">Esta semana arranca limpia — no se arrastra nada.</div>
+    </div>
+    <button onclick="localStorage.setItem('hf_wknotice_${m}','1');renderHome()" style="background:none;border:none;color:var(--text-3);font-size:20px;line-height:1;cursor:pointer">×</button>
+  </div>`;
+}
+
+// Plan del día: override por fecha (hf_plan_<fecha>) > cola (semana actual) > split por weekday
 function planKey(ds) { return 'hf_plan_' + ds; }
 function getDayPlan(ds) {
   const ov = localStorage.getItem(planKey(ds));
   if (ov) { try { const a = JSON.parse(ov); if (Array.isArray(a)) return a; } catch (e) {} }
+  const today = todayStr();
+  if (mondayOf(ds) === mondayOf(today) && ds >= today) {
+    if (getWeekday(new Date(ds + 'T00:00:00')) === 7) return [];
+    const pending = queuePending();
+    const offset = Math.round((new Date(ds + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000);
+    return pending[offset] ? [pending[offset]] : [];
+  }
+  if (ds < today) return []; // pasado: se muestra solo lo logueado (lo salteado lo cubre el aviso del lunes)
   const wd = getWeekday(new Date(ds + 'T00:00:00'));
   return templatesForWeekday(wd).filter(t => t.category !== 'rest').map(t => t.type_id);
 }
@@ -3370,6 +3481,7 @@ function renderTodayActivities() {
   if (!items.length) {
     inner = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;color:var(--text-3);font-size:13px">Día de descanso. Tocá "Cambiar" si querés hacer algo.</div>`;
   } else {
+    const isToday = ds === todayStr();
     inner = items.map(a => {
       const isDone = doneIds.has(a.type_id);
       const badge = isDone
@@ -3377,17 +3489,24 @@ function renderTodayActivities() {
         : isPast
           ? `<span style="background:rgba(0,0,0,.5);color:#fff;border:1px solid rgba(255,255,255,.35);font-size:12px;font-weight:700;border-radius:999px;padding:5px 11px">No realizado</span>`
           : `<span style="background:var(--gold);color:#0a0a0a;font-size:12px;font-weight:800;border-radius:999px;padding:5px 11px">Pendiente</span>`;
+      const skipBtn = (isToday && !isDone && WEEK_SEQUENCE.includes(a.type_id))
+        ? `<button onclick="event.stopPropagation();skipSession('${a.type_id}')" style="background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:4px 10px;cursor:pointer">Saltear ›</button>`
+        : '';
       return `<div onclick="openDay('${a.type_id}','${ds}')" style="position:relative;height:104px;border-radius:var(--radius);overflow:hidden;cursor:pointer;margin-bottom:10px;background:var(--surface-2)">
         <img src="${workoutPhoto(a.type_id)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block">
         <div style="position:absolute;inset:0;background:linear-gradient(to top, rgba(0,0,0,.82), rgba(0,0,0,.15) 55%, rgba(0,0,0,.05))"></div>
+        ${skipBtn ? `<div style="position:absolute;top:10px;right:12px">${skipBtn}</div>` : ''}
         <div style="position:absolute;left:15px;right:13px;bottom:12px;display:flex;align-items:flex-end;justify-content:space-between;gap:10px">
           <span style="color:#fff;font-weight:800;font-size:18px;letter-spacing:-.01em;text-shadow:0 1px 5px rgba(0,0,0,.6)">${a.name}</span>
           ${badge}
         </div>
       </div>`;
     }).join('');
+    if (isToday && queueGuardNote) inner = `<div style="color:var(--text-3);font-size:12px;margin-bottom:8px">${queueGuardNote}</div>` + inner;
   }
+  const notice = (ds === todayStr()) ? weekNoticeHTML() : '';
   el.innerHTML = `<div style="margin-bottom:16px">
+    ${notice}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
       <span style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Actividad</span>
       <button onclick="openChangePlan('${ds}')" style="background:none;border:none;color:var(--accent-2);font-size:13px;font-weight:600;cursor:pointer">Cambiar</button>
