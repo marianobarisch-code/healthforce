@@ -474,7 +474,7 @@
   <div class="header"><h1>Ajustes</h1></div>
   <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Conexiones</div>
   <div id="gcal-card"></div>
-  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.07.28</strong></div>
+  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.08.01</strong></div>
 </section>
 
 <nav class="nav" id="bottom-nav">
@@ -610,7 +610,7 @@ const DAY_TEMPLATES = [
   { type_id: 'natacion', name: 'Swimming', short: 'Swimming', desc: 'Recuperación activa', category: 'cardio_steady', weekday: 6, muscles: ['Cardio'] },
   { type_id: 'padel', name: 'Pádel', short: 'Pádel', desc: 'Intermitente alta intensidad', category: 'sport', weekday: null, muscles: ['Cardio'] },
   { type_id: 'z2', name: 'Running Z2', short: 'Z2', desc: 'Base aeróbica · ritmo conversacional', category: 'cardio_steady', weekday: 2, muscles: ['Cardio'] },
-  { type_id: 'sprints', name: 'Sprints', short: 'Sprints', desc: 'VO2max + capacidad anaeróbica', category: 'cardio_intervals', weekday: 5, muscles: ['Cardio'] },
+  { type_id: 'sprints', name: 'Pasadas HIIT', short: 'Pasadas', desc: 'VO2max · intervalos con timer', category: 'cardio_intervals', weekday: 5, muscles: ['Cardio'] },
   { type_id: 'mobility', name: 'Mobility', short: 'Mobility', desc: 'Movilidad y activación ligera', category: 'mobility', weekday: null, muscles: [] },
   { type_id: 'rest', name: 'Full Rest', short: 'Rest', desc: 'Descanso completo', category: 'rest', weekday: 7, muscles: [] },
   { type_id: 'day1', name: 'Chest, Shoulder, Biceps', short: 'Chest, Shoulder, Biceps', desc: 'Empuje vertical + horizontal alto', category: 'strength', weekday: null, legacy: true, muscles: ['Pecho','Hombros','Bíceps'] },
@@ -760,19 +760,21 @@ const DAY_EXERCISES = {
 };
 
 const CARDIO_PROGRESSION = {
+  // Pasadas HIIT (VO2max). Palancas en orden: volumen → duración del intervalo → velocidad.
+  // El "stage" avanza con cada sesión completada (no por semana calendario).
   sprints: [
-    { week: 1, velocity: 13.5, rounds: 6, series: 2, deload: false },
-    { week: 2, velocity: 14.0, rounds: 8, series: 2, deload: false },
-    { week: 3, velocity: 14.0, rounds: 8, series: 3, deload: false },
-    { week: 4, velocity: 14.5, rounds: 8, series: 3, deload: false },
-    { week: 5, velocity: 14.5, rounds: 8, series: 3, deload: false },
-    { week: 6, velocity: 14.7, rounds: 8, series: 3, deload: false },
-    { week: 7, velocity: 14.9, rounds: 8, series: 3, deload: false },
-    { week: 8, velocity: 14.9, rounds: 6, series: 3, deload: true },
-    { week: 9, velocity: 15.1, rounds: 8, series: 3, deload: false },
-    { week: 10, velocity: 15.3, rounds: 8, series: 3, deload: false },
-    { week: 11, velocity: 15.5, rounds: 8, series: 3, deload: false },
-    { week: 12, velocity: 15.5, rounds: 6, series: 3, deload: true }
+    { week: 1, velocity: 15.0, rounds: 8, series: 2, work: 15, rest: 15, deload: false },
+    { week: 2, velocity: 15.5, rounds: 8, series: 2, work: 15, rest: 15, deload: false },
+    { week: 3, velocity: 15.5, rounds: 8, series: 3, work: 15, rest: 15, deload: false },
+    { week: 4, velocity: 15.5, rounds: 8, series: 3, work: 15, rest: 15, deload: false },
+    { week: 5, velocity: 15.0, rounds: 8, series: 3, work: 20, rest: 20, deload: false },
+    { week: 6, velocity: 15.0, rounds: 8, series: 3, work: 20, rest: 20, deload: false },
+    { week: 7, velocity: 15.0, rounds: 6, series: 2, work: 20, rest: 20, deload: true },
+    { week: 8, velocity: 14.5, rounds: 6, series: 3, work: 30, rest: 30, deload: false },
+    { week: 9, velocity: 14.5, rounds: 7, series: 3, work: 30, rest: 30, deload: false },
+    { week: 10, velocity: 14.5, rounds: 8, series: 3, work: 30, rest: 30, deload: false },
+    { week: 11, velocity: 14.7, rounds: 8, series: 3, work: 30, rest: 30, deload: false },
+    { week: 12, velocity: 14.7, rounds: 6, series: 2, work: 30, rest: 30, deload: true }
   ],
   z2: [
     { week: 1, duration: 30 }, { week: 2, duration: 30 }, { week: 3, duration: 35 },
@@ -2211,18 +2213,38 @@ function removeExerciseFromDay(exId) {
 // =============== CARDIO ===============
 function getCurrentWeek() { return loadUserState().current_week || 1; }
 
+// Etapa de la progresión de pasadas: avanza con cada sesión completada (no por calendario)
+function hiitStage() {
+  const n = loadWorkouts().filter(w => w.type_id === 'sprints' && w.date >= '2026-07-27').length;
+  const plan = CARDIO_PROGRESSION.sprints;
+  return plan[Math.min(n, plan.length - 1)];
+}
 function renderSprintsDay(dateStr) {
-  const week = getCurrentWeek();
-  const prescription = CARDIO_PROGRESSION.sprints.find(p => p.week === week) || CARDIO_PROGRESSION.sprints[CARDIO_PROGRESSION.sprints.length - 1];
+  const prescription = hiitStage();
   const draft = loadOrCreateDraft('sprints', dateStr, () => ({ type_id: 'sprints', date: dateStr, velocity: '', rounds_completed: '', series_completed: '', rpe: '', notes: '' }));
   currentDraft = draft;
   saveDraft('sprints', dateStr, draft);
+  const tc = getTimerConfig(prescription);
 
   document.getElementById('day-content').innerHTML = `
     <div class="cardio-prescription">
-      <div class="label">Plan de hoy · Semana ${week}${prescription.deload ? ' (deload)' : ''}</div>
-      <div class="value">${prescription.series} × ${prescription.rounds} rondas a ${prescription.velocity} km/h</div>
-      <div class="meta">Formato 20" / 10" · inclinación 1°</div>
+      <div class="label">Plan de hoy · Etapa ${prescription.week}${prescription.deload ? ' (descarga 🔋)' : ''}</div>
+      <div class="value">${prescription.series} × ${prescription.rounds} pasadas a ${prescription.velocity} km/h</div>
+      <div class="meta">Formato ${prescription.work}" corrida / ${prescription.rest}" descanso · inclinación 1° · avanza al completar la sesión</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <span style="font-weight:800;font-size:15px">⏱ Timer de pasadas</span>
+        <span style="color:var(--text-3);font-size:12px">total ~${timerTotalMin(tc)} min</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div class="form-field" style="margin:0"><label>Series</label><input id="tmr-series" type="number" inputmode="numeric" value="${tc.series}" onchange="saveTimerConfig()"></div>
+        <div class="form-field" style="margin:0"><label>Pasadas por serie</label><input id="tmr-rounds" type="number" inputmode="numeric" value="${tc.rounds}" onchange="saveTimerConfig()"></div>
+        <div class="form-field" style="margin:0"><label>Corrida (seg)</label><input id="tmr-work" type="number" inputmode="numeric" value="${tc.work}" onchange="saveTimerConfig()"></div>
+        <div class="form-field" style="margin:0"><label>Descanso (seg)</label><input id="tmr-rest" type="number" inputmode="numeric" value="${tc.rest}" onchange="saveTimerConfig()"></div>
+        <div class="form-field" style="margin:0;grid-column:1 / -1"><label>Descanso entre series (seg)</label><input id="tmr-srest" type="number" inputmode="numeric" value="${tc.seriesRest}" onchange="saveTimerConfig()"></div>
+      </div>
+      <button onclick="startIntervalTimer()" style="width:100%;background:var(--accent);color:#0a0a0a;border:none;border-radius:12px;padding:14px;font-weight:800;font-size:16px;cursor:pointer">▶ Arrancar</button>
     </div>
     <div class="cardio-log-form">
       <div class="form-field"><label>Velocidad real (km/h)</label><input type="number" step="0.1" value="${draft.velocity ?? prescription.velocity}" onchange="updateCardio('velocity', this.value)"></div>
@@ -2234,6 +2256,147 @@ function renderSprintsDay(dateStr) {
     <button class="btn" onclick="finishWorkout()">Finalizar entrenamiento</button>
     ${!!workoutForTypeAndDate('sprints', dateStr) ? '<button class="btn btn-danger" onclick="deleteWorkout()">Eliminar entrenamiento</button>' : ''}
   `;
+}
+
+// ═══ Timer de intervalos (pasadas HIIT / tabata) ═══
+function getTimerConfig(prescription) {
+  try {
+    const s = JSON.parse(localStorage.getItem('hf_hiit_timer'));
+    if (s && s.series) return s;
+  } catch (e) {}
+  const p = prescription || hiitStage();
+  return { series: p.series, rounds: p.rounds, work: p.work, rest: p.rest, seriesRest: 180 };
+}
+function saveTimerConfig() {
+  const v = id => Math.max(1, parseInt((document.getElementById(id) || {}).value, 10) || 1);
+  const tc = { series: v('tmr-series'), rounds: v('tmr-rounds'), work: v('tmr-work'), rest: v('tmr-rest'), seriesRest: v('tmr-srest') };
+  localStorage.setItem('hf_hiit_timer', JSON.stringify(tc));
+  return tc;
+}
+function timerTotalMin(tc) {
+  const sec = tc.series * tc.rounds * (tc.work + tc.rest) + (tc.series - 1) * tc.seriesRest + 10;
+  return Math.round(sec / 60);
+}
+let tmr = null; // estado del timer activo
+let tmrAudio = null, tmrWakeLock = null;
+function tmrBeep(freq, ms) {
+  try {
+    if (!tmrAudio) tmrAudio = new (window.AudioContext || window.webkitAudioContext)();
+    const o = tmrAudio.createOscillator(), g = tmrAudio.createGain();
+    o.frequency.value = freq; o.connect(g); g.connect(tmrAudio.destination);
+    g.gain.setValueAtTime(0.35, tmrAudio.currentTime);
+    o.start(); o.stop(tmrAudio.currentTime + ms / 1000);
+  } catch (e) {}
+}
+function tmrVibrate(pat) { try { navigator.vibrate && navigator.vibrate(pat); } catch (e) {} }
+async function tmrKeepAwake(on) {
+  try {
+    if (on && 'wakeLock' in navigator) tmrWakeLock = await navigator.wakeLock.request('screen');
+    else if (tmrWakeLock) { tmrWakeLock.release(); tmrWakeLock = null; }
+  } catch (e) {}
+}
+function startIntervalTimer() {
+  const tc = saveTimerConfig();
+  // lista de fases
+  const phases = [{ t: 'prep', d: 10, label: 'PREPARATE' }];
+  for (let s = 1; s <= tc.series; s++) {
+    for (let r = 1; r <= tc.rounds; r++) {
+      phases.push({ t: 'work', d: tc.work, label: 'CORRÉ', r, s });
+      if (r < tc.rounds) phases.push({ t: 'rest', d: tc.rest, label: 'DESCANSO', r, s });
+    }
+    if (s < tc.series) phases.push({ t: 'srest', d: tc.seriesRest, label: 'ENTRE SERIES', s });
+  }
+  tmr = { tc, phases, i: 0, endAt: Date.now() + phases[0].d * 1000, paused: false, pauseLeft: 0, lastWhole: null, done: false };
+  const ov = document.createElement('div');
+  ov.id = 'tmr-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;transition:background .3s';
+  document.body.appendChild(ov);
+  tmrKeepAwake(true);
+  tmrBeep(600, 120);
+  tmr.int = setInterval(tmrTick, 150);
+  tmrTick();
+}
+function tmrColors(t) {
+  return { prep: ['#262626', '#FAFAFA'], work: ['#D4FF3D', '#0a0a0a'], rest: ['#1d4ed8', '#fff'], srest: ['#6d28d9', '#fff'] }[t] || ['#262626', '#fff'];
+}
+function tmrTick() {
+  if (!tmr || tmr.paused) return;
+  const left = Math.max(0, tmr.endAt - Date.now());
+  const leftS = Math.ceil(left / 1000);
+  const ph = tmr.phases[tmr.i];
+  // beeps de cuenta regresiva (3-2-1)
+  if (leftS !== tmr.lastWhole) {
+    tmr.lastWhole = leftS;
+    if (leftS <= 3 && leftS >= 1) tmrBeep(880, 90);
+  }
+  if (left <= 0) {
+    tmr.i++;
+    if (tmr.i >= tmr.phases.length) { tmrFinish(); return; }
+    const nx = tmr.phases[tmr.i];
+    tmr.endAt = Date.now() + nx.d * 1000;
+    tmr.lastWhole = null;
+    tmrBeep(nx.t === 'work' ? 1200 : 500, 250);
+    tmrVibrate(nx.t === 'work' ? [200, 80, 200] : 200);
+  }
+  tmrRender(leftS, ph);
+}
+function tmrRender(leftS, ph) {
+  const ov = document.getElementById('tmr-overlay'); if (!ov) return;
+  const [bg, fg] = tmrColors(ph.t);
+  ov.style.background = bg;
+  const tc = tmr.tc;
+  const sub = ph.t === 'prep' ? `${tc.series} series × ${tc.rounds} pasadas · ${tc.work}"/${tc.rest}"`
+    : ph.t === 'srest' ? `Serie ${ph.s} lista 💪 · viene la ${ph.s + 1}`
+    : `Pasada ${ph.r}/${tc.rounds} · Serie ${ph.s}/${tc.series}`;
+  const totalWork = tc.series * tc.rounds;
+  const doneWork = tmr.phases.slice(0, tmr.i).filter(p => p.t === 'work').length;
+  ov.innerHTML = `
+    <div style="color:${fg};opacity:.75;font-weight:800;font-size:20px;letter-spacing:2px">${ph.label}</div>
+    <div style="color:${fg};font-weight:900;font-size:110px;line-height:1;font-variant-numeric:tabular-nums">${leftS}</div>
+    <div style="color:${fg};opacity:.85;font-weight:700;font-size:16px">${sub}</div>
+    <div style="width:70%;max-width:300px;height:8px;background:rgba(0,0,0,.25);border-radius:99px;margin-top:14px"><div style="height:100%;width:${Math.round(doneWork / totalWork * 100)}%;background:${fg};border-radius:99px;opacity:.9"></div></div>
+    <div style="display:flex;gap:12px;margin-top:26px">
+      <button onclick="tmrPause()" style="background:rgba(0,0,0,.3);border:2px solid ${fg};color:${fg};border-radius:99px;padding:12px 26px;font-weight:800;font-size:15px;cursor:pointer">${tmr.paused ? '▶ Seguir' : '⏸ Pausa'}</button>
+      <button onclick="tmrStop()" style="background:rgba(0,0,0,.3);border:2px solid ${fg};color:${fg};border-radius:99px;padding:12px 26px;font-weight:800;font-size:15px;cursor:pointer">✕ Terminar</button>
+    </div>`;
+}
+function tmrPause() {
+  if (!tmr) return;
+  if (!tmr.paused) { tmr.paused = true; tmr.pauseLeft = tmr.endAt - Date.now(); }
+  else { tmr.paused = false; tmr.endAt = Date.now() + tmr.pauseLeft; }
+  tmrRender(Math.ceil((tmr.paused ? tmr.pauseLeft : tmr.endAt - Date.now()) / 1000), tmr.phases[tmr.i]);
+}
+function tmrStop() {
+  if (tmr && !tmr.done && !confirm('¿Terminar el timer?')) return;
+  tmrClose();
+}
+function tmrClose() {
+  if (tmr && tmr.int) clearInterval(tmr.int);
+  tmr = null;
+  tmrKeepAwake(false);
+  const ov = document.getElementById('tmr-overlay'); if (ov) ov.remove();
+}
+function tmrFinish() {
+  clearInterval(tmr.int); tmr.done = true;
+  tmrBeep(1200, 200); setTimeout(() => tmrBeep(1500, 350), 250);
+  tmrVibrate([300, 100, 300, 100, 500]);
+  const tc = tmr.tc;
+  // precargar el log con lo completado
+  if (currentDraft && currentDraft.type_id === 'sprints') {
+    currentDraft.series_completed = tc.series;
+    currentDraft.rounds_completed = tc.rounds;
+    saveDraft('sprints', currentDayDate, currentDraft);
+  }
+  const ov = document.getElementById('tmr-overlay');
+  if (ov) {
+    ov.style.background = '#16a34a';
+    ov.innerHTML = `
+      <div style="font-size:64px">🎉</div>
+      <div style="color:#fff;font-weight:900;font-size:32px">¡Completado!</div>
+      <div style="color:#fff;opacity:.9;font-weight:700;font-size:16px">${tc.series} × ${tc.rounds} pasadas de ${tc.work}"</div>
+      <div style="color:#fff;opacity:.75;font-size:13px;margin-top:4px">Ya precargué series y pasadas en el log — poné velocidad y RPE y finalizá.</div>
+      <button onclick="tmrClose();if(typeof currentDayDate!=='undefined'&&currentDayDate)renderSprintsDay(currentDayDate)" style="background:#fff;color:#0a0a0a;border:none;border-radius:99px;padding:14px 34px;font-weight:800;font-size:16px;cursor:pointer;margin-top:22px">Listo</button>`;
+  }
 }
 
 function renderZ2Day(dateStr) {
