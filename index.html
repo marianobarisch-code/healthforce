@@ -474,7 +474,7 @@
   <div class="header"><h1>Ajustes</h1></div>
   <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Conexiones</div>
   <div id="gcal-card"></div>
-  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.08.01</strong></div>
+  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.08.03</strong></div>
 </section>
 
 <nav class="nav" id="bottom-nav">
@@ -2310,6 +2310,17 @@ function startIntervalTimer() {
   const ov = document.createElement('div');
   ov.id = 'tmr-overlay';
   ov.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;transition:background .3s';
+  // La estructura se crea UNA vez; cada tick solo actualiza textos (si se redibuja
+  // entero, los botones se destruyen mientras el dedo los toca y el tap se pierde)
+  ov.innerHTML = `
+    <div id="tmr-label" style="opacity:.75;font-weight:800;font-size:20px;letter-spacing:2px"></div>
+    <div id="tmr-num" style="font-weight:900;font-size:110px;line-height:1;font-variant-numeric:tabular-nums"></div>
+    <div id="tmr-sub" style="opacity:.85;font-weight:700;font-size:16px"></div>
+    <div style="width:70%;max-width:300px;height:8px;background:rgba(0,0,0,.25);border-radius:99px;margin-top:14px"><div id="tmr-bar" style="height:100%;width:0%;border-radius:99px;opacity:.9"></div></div>
+    <div style="display:flex;gap:12px;margin-top:26px">
+      <button id="tmr-pausebtn" onclick="tmrPause()" style="background:rgba(0,0,0,.3);border:2px solid #fff;border-radius:99px;padding:12px 26px;font-weight:800;font-size:15px;cursor:pointer">⏸ Pausa</button>
+      <button id="tmr-stopbtn" onclick="tmrStop()" style="background:rgba(0,0,0,.3);border:2px solid #fff;border-radius:99px;padding:12px 26px;font-weight:800;font-size:15px;cursor:pointer">✕ Terminar</button>
+    </div>`;
   document.body.appendChild(ov);
   tmrKeepAwake(true);
   tmrBeep(600, 120);
@@ -2341,7 +2352,7 @@ function tmrTick() {
   tmrRender(leftS, ph);
 }
 function tmrRender(leftS, ph) {
-  const ov = document.getElementById('tmr-overlay'); if (!ov) return;
+  const ov = document.getElementById('tmr-overlay'); if (!ov || !tmr || tmr.done) return;
   const [bg, fg] = tmrColors(ph.t);
   ov.style.background = bg;
   const tc = tmr.tc;
@@ -2350,15 +2361,15 @@ function tmrRender(leftS, ph) {
     : `Pasada ${ph.r}/${tc.rounds} · Serie ${ph.s}/${tc.series}`;
   const totalWork = tc.series * tc.rounds;
   const doneWork = tmr.phases.slice(0, tmr.i).filter(p => p.t === 'work').length;
-  ov.innerHTML = `
-    <div style="color:${fg};opacity:.75;font-weight:800;font-size:20px;letter-spacing:2px">${ph.label}</div>
-    <div style="color:${fg};font-weight:900;font-size:110px;line-height:1;font-variant-numeric:tabular-nums">${leftS}</div>
-    <div style="color:${fg};opacity:.85;font-weight:700;font-size:16px">${sub}</div>
-    <div style="width:70%;max-width:300px;height:8px;background:rgba(0,0,0,.25);border-radius:99px;margin-top:14px"><div style="height:100%;width:${Math.round(doneWork / totalWork * 100)}%;background:${fg};border-radius:99px;opacity:.9"></div></div>
-    <div style="display:flex;gap:12px;margin-top:26px">
-      <button onclick="tmrPause()" style="background:rgba(0,0,0,.3);border:2px solid ${fg};color:${fg};border-radius:99px;padding:12px 26px;font-weight:800;font-size:15px;cursor:pointer">${tmr.paused ? '▶ Seguir' : '⏸ Pausa'}</button>
-      <button onclick="tmrStop()" style="background:rgba(0,0,0,.3);border:2px solid ${fg};color:${fg};border-radius:99px;padding:12px 26px;font-weight:800;font-size:15px;cursor:pointer">✕ Terminar</button>
-    </div>`;
+  const $ = id => document.getElementById(id);
+  $('tmr-label').textContent = ph.label; $('tmr-label').style.color = fg;
+  $('tmr-num').textContent = leftS; $('tmr-num').style.color = fg;
+  $('tmr-sub').textContent = sub; $('tmr-sub').style.color = fg;
+  const bar = $('tmr-bar'); bar.style.width = Math.round(doneWork / totalWork * 100) + '%'; bar.style.background = fg;
+  const pb = $('tmr-pausebtn'), sb = $('tmr-stopbtn');
+  pb.textContent = tmr.paused ? '▶ Seguir' : '⏸ Pausa';
+  pb.style.color = fg; pb.style.borderColor = fg;
+  sb.style.color = fg; sb.style.borderColor = fg;
 }
 function tmrPause() {
   if (!tmr) return;
@@ -2367,7 +2378,15 @@ function tmrPause() {
   tmrRender(Math.ceil((tmr.paused ? tmr.pauseLeft : tmr.endAt - Date.now()) / 1000), tmr.phases[tmr.i]);
 }
 function tmrStop() {
-  if (tmr && !tmr.done && !confirm('¿Terminar el timer?')) return;
+  if (!tmr) return;
+  if (!tmr.done && !tmr.confirmStop) {
+    // doble toque para confirmar (los diálogos nativos fallan en PWA)
+    tmr.confirmStop = true;
+    const sb = document.getElementById('tmr-stopbtn');
+    if (sb) sb.textContent = '¿Seguro? Tocá otra vez';
+    setTimeout(() => { if (tmr) { tmr.confirmStop = false; const b = document.getElementById('tmr-stopbtn'); if (b) b.textContent = '✕ Terminar'; } }, 3000);
+    return;
+  }
   tmrClose();
 }
 function tmrClose() {
