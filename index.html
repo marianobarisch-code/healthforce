@@ -674,7 +674,8 @@ const EXERCISES_BASE = [
   { id: 'dead-bug', name: 'Dead bug', primary: 'Core', secondary: [] },
   { id: 'suitcase-carry', name: 'Suitcase carry', primary: 'Core', secondary: ['Antebrazos'] },
   { id: 'side-plank', name: 'Plancha lateral', primary: 'Core', secondary: [] },
-  { id: 'tibialis-raise', name: 'Elevación tibial', primary: 'Pantorrillas', secondary: [] }
+  { id: 'tibialis-raise', name: 'Elevación tibial', primary: 'Pantorrillas', secondary: [] },
+  { id: 'hip-flexor-cable', name: 'Flexión de cadera en polea', primary: 'Piernas', secondary: ['Core'] }
 ];
 
 const DAY_EXERCISES = {
@@ -698,11 +699,13 @@ const DAY_EXERCISES = {
     { id: 'side-plank', sets: 3, reps: '30 seg/lado', rir: '', ss_group: 2, notes: 'Core B' }
   ],
   piernas: [
-    { id: 'rdl', sets: 3, reps: '10-12', rir: 'RIR 2-3', ss_group: null, notes: 'EL EJE · calentá antes 2×10 con 25-30 · arranque 45 · +5/sem solo si pasa la regla del día siguiente' },
+    { id: 'atg-split-squat', sets: 2, reps: '8 por pierna', rir: 'peso corporal', ss_group: null, notes: 'CALOR (junto a RDL kickstand liviano 2×10 con 25-30) · bajada 3 seg' },
+    { id: 'rdl', sets: 3, reps: '10-12', rir: 'RIR 2-3', ss_group: null, notes: 'EL EJE · bilateral · arranque 45 · +5/sem solo si pasa la regla del día siguiente' },
     { id: 'bulgarian-split', sets: 3, reps: '8 por pierna', rir: 'RIR 1-2', ss_group: null, notes: 'Glúteo medio + cuádriceps sin columna · 14 kg' },
-    { id: 'cossack-squat', sets: 2, reps: '6-8 por lado', rir: 'peso corporal', ss_group: null, notes: 'Semana A · alternar con ATG · rango primero, peso después' },
-    { id: 'atg-split-squat', sets: 2, reps: '8-10 por pierna', rir: 'peso corporal', ss_group: null, notes: 'Semana B · alternar con Cossack · bajada 3 seg' },
-    { id: 'copenhagen-plank', sets: 2, reps: '20-30 seg/lado', rir: 'isométrica', ss_group: null, notes: 'OPCIONAL · solo si sobran 5 min' }
+    { id: 'hip-flexor-cable', sets: 2, reps: '10-12 por lado', rir: 'liviano y controlado', ss_group: 1, notes: 'SS1 · psoas (zancada/sprint) + estabilidad de apoyo · tobillera en polea baja' },
+    { id: 'cossack-squat', sets: 2, reps: '6-8 por lado', rir: 'peso corporal', ss_group: 1, notes: 'SS1 · plano lateral · rango primero, peso después' },
+    { id: 'calf-raise', sets: 2, reps: '12-15', rir: 'moderado', ss_group: 2, notes: 'SS2 cierre · el dedo tiene veto: molestia = cortar' },
+    { id: 'tibialis-raise', sets: 2, reps: '15', rir: '', ss_group: 2, notes: 'SS2 cierre · tobillo' }
   ],
   day1: [
     { id: 'incline-db', sets: 3, reps: '8', rir: 'RIR 1-2', ss_group: null, notes: 'Pesado · clavicular' },
