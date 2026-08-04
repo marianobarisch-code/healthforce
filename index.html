@@ -474,7 +474,7 @@
   <div class="header"><h1>Ajustes</h1></div>
   <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Conexiones</div>
   <div id="gcal-card"></div>
-  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.08.04</strong></div>
+  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.08.06</strong></div>
 </section>
 
 <nav class="nav" id="bottom-nav">
@@ -699,8 +699,7 @@ const DAY_EXERCISES = {
     { id: 'side-plank', sets: 3, reps: '30 seg/lado', rir: '', ss_group: 2, notes: 'Core B' }
   ],
   piernas: [
-    { id: 'atg-split-squat', sets: 2, reps: '8 por pierna', rir: 'peso corporal', ss_group: null, notes: 'CALOR (junto a RDL liviano bilateral 2×10 con 25-30) · bajada 3 seg' },
-    { id: 'rdl', sets: 3, reps: '10-12', rir: 'RIR 2-3', ss_group: null, notes: 'EL EJE · bilateral · arranque 45 · +5/sem solo si pasa la regla del día siguiente' },
+    { id: 'rdl', sets: 3, reps: '10-12', rir: 'RIR 2-3', ss_group: null, notes: 'EL EJE · bilateral · arranque 45 · +5/sem solo si pasa la regla del día siguiente · (calor a ojo: RDL liviano + ATG)' },
     { id: 'bulgarian-split', sets: 3, reps: '8 por pierna', rir: 'RIR 1-2', ss_group: null, notes: 'Glúteo medio + cuádriceps sin columna · 14 kg' },
     { id: 'hip-flexor-cable', sets: 2, reps: '10-12 por lado', rir: 'liviano y controlado', ss_group: 1, notes: 'SS1 · psoas (zancada/sprint) + estabilidad de apoyo · tobillera en polea baja' },
     { id: 'cossack-squat', sets: 2, reps: '6-8 por lado', rir: 'peso corporal', ss_group: 1, notes: 'SS1 · plano lateral · rango primero, peso después' },
@@ -1990,6 +1989,71 @@ function loadOrCreateDraft(typeId, dateStr, factory) {
   return draft;
 }
 
+// ═══ Shuffle: alternativa equivalente cuando la máquina está ocupada ═══
+// Mismo casillero/patrón; tocar ⇄ cicla entre las opciones (y vuelve al original).
+const EXERCISE_ALTERNATIVES = {
+  'lat-pulldown': ['pull-ups', 'cable-row'],
+  'pull-ups': ['lat-pulldown'],
+  'technogym-row': ['db-row-uni', 'cable-row', 'barbell-row'],
+  'db-row-uni': ['technogym-row', 'cable-row'],
+  'cable-row': ['technogym-row', 'db-row-uni'],
+  'face-pull': ['rear-delt-fly'],
+  'rear-delt-fly': ['face-pull'],
+  'incline-db-curl': ['db-curl', 'hammer-curl', 'preacher-curl'],
+  'machine-ohp': ['db-ohp', 'ohp'],
+  'bench-press': ['db-bench', 'incline-db'],
+  'incline-db': ['db-bench', 'bench-press'],
+  'pec-deck': ['cable-fly', 'chest-fly'],
+  'lateral-raise-db': ['lateral-raise-cable'],
+  'lateral-raise-cable': ['lateral-raise-db'],
+  'overhead-ext-rope': ['tricep-pushdown', 'skull-crusher', 'dips-tricep'],
+  'tricep-pushdown': ['overhead-ext-rope', 'skull-crusher'],
+  'dips-tricep': ['tricep-pushdown', 'overhead-ext-rope'],
+  'rdl': ['hip-thrust', 'leg-curl'],
+  'hip-thrust': ['rdl'],
+  'leg-curl': ['rdl', 'hip-thrust'],
+  'bulgarian-split': ['atg-split-squat', 'leg-extension'],
+  'cossack-squat': ['atg-split-squat'],
+  'atg-split-squat': ['cossack-squat', 'bulgarian-split'],
+  'hip-flexor-cable': ['hanging-leg-raise'],
+  'calf-raise': ['tibialis-raise'],
+  'squat': ['front-squat', 'bulgarian-split'],
+  'dead-bug': ['plank', 'cable-crunch'],
+  'pallof-press': ['side-plank', 'plank'],
+  'suitcase-carry': ['side-plank', 'plank'],
+  'side-plank': ['plank', 'pallof-press'],
+  'hyperextension': ['rdl']
+};
+function swapExercise(exId) {
+  if (!currentDraft || !currentDraft.exercise_order) return;
+  const order = currentDraft.exercise_order;
+  const idx = order.indexOf(exId);
+  if (idx < 0) return;
+  currentDraft.swap_origin = currentDraft.swap_origin || {};
+  const origin = currentDraft.swap_origin[exId] || exId;
+  const alts = EXERCISE_ALTERNATIVES[origin] || EXERCISE_ALTERNATIVES[exId] || [];
+  if (!alts.length) { toast('Este ejercicio no tiene alternativa definida', true); return; }
+  const cycle = [origin, ...alts.filter(a => a !== origin)];
+  const pos = cycle.indexOf(exId);
+  let next = null;
+  for (let i = 1; i <= cycle.length; i++) {
+    const cand = cycle[(pos + i) % cycle.length];
+    if (cand !== exId && !order.includes(cand)) { next = cand; break; }
+  }
+  if (!next) { toast('Las alternativas ya están en tu día', true); return; }
+  const nSets = (currentDraft.sets[exId] || []).length || 3;
+  const sug = suggestNextSession(next, '', currentDayDate);
+  order[idx] = next;
+  currentDraft.sets[next] = Array.from({ length: nSets }, (_, i) => ({ set_number: i + 1, weight: sug ? sug.weight : '', reps: '', rpe: '' }));
+  delete currentDraft.sets[exId];
+  delete currentDraft.swap_origin[exId];
+  if (next !== origin) currentDraft.swap_origin[next] = origin;
+  saveDraft(currentDayTypeId, currentDayDate, currentDraft);
+  const exN = findExercise(next);
+  toast(`⇄ ${exN ? exN.name : next}${next === origin ? ' (el original)' : ' · tocá ⇄ para otra opción'}`);
+  renderStrengthDay(currentDayTypeId, currentDayDate);
+}
+
 function renderStrengthDay(typeId, dateStr) {
   const prescribed = DAY_EXERCISES[typeId] || [];
   const draft = loadOrCreateDraft(typeId, dateStr, () => {
@@ -2029,7 +2093,7 @@ function renderStrengthDay(typeId, dateStr) {
   draft.exercise_order.forEach((exId, idx) => {
     const ex = findExercise(exId);
     if (!ex) return;
-    const meta = getExerciseMeta(typeId, exId);
+    const meta = getExerciseMeta(typeId, exId) || getExerciseMeta(typeId, (draft.swap_origin || {})[exId]);
     const sets = draft.sets[exId] || [];
     const ssTag = meta && meta.ss_group ? `<span class="ss-tag">SS${meta.ss_group}</span>` : '';
     const isFirst = idx === 0;
@@ -2090,6 +2154,7 @@ function renderStrengthDay(typeId, dateStr) {
           ${suggestionHTML}
           <div class="exercise-actions">
             <span style="flex:1; font-size:11px; color:var(--text-3); align-self:center;">Mantené ⠿ y arrastrá para reordenar</span>
+            <button class="ex-action-btn" onclick="swapExercise('${exId}')" title="Cambiar por alternativa (máquina ocupada)" style="font-size:16px;font-weight:800">⇄</button>
             <button class="ex-action-btn danger" onclick="removeExerciseFromDay('${exId}')" title="Quitar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 01-2 2H9a2 2 0 01-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button>
           </div>
           <div class="sets-table-header"><span>#</span><span>${loadUnitLabel(exId)}</span><span>Reps</span><span>RPE</span><span></span></div>
