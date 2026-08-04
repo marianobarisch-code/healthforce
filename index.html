@@ -474,7 +474,7 @@
   <div class="header"><h1>Ajustes</h1></div>
   <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Conexiones</div>
   <div id="gcal-card"></div>
-  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.08.03</strong></div>
+  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.08.04</strong></div>
 </section>
 
 <nav class="nav" id="bottom-nav">
@@ -2247,6 +2247,7 @@ function renderSprintsDay(dateStr) {
       </div>
       <button onclick="startIntervalTimer()" style="width:100%;background:var(--accent);color:#0a0a0a;border:none;border-radius:12px;padding:14px;font-weight:800;font-size:16px;cursor:pointer">▶ Arrancar</button>
     </div>
+    <button onclick="importWhoopCardio('sprints','${dateStr}')" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:12px">⌚ Traer datos del Whoop</button>
     <div class="cardio-log-form">
       <div class="form-field"><label>Velocidad real (km/h)</label><input type="number" step="0.1" value="${draft.velocity ?? prescription.velocity}" onchange="updateCardio('velocity', this.value)"></div>
       <div class="form-field"><label>Series completadas (de ${prescription.series})</label><input type="number" value="${draft.series_completed ?? ''}" placeholder="${prescription.series}" onchange="updateCardio('series_completed', this.value)"></div>
@@ -2419,6 +2420,37 @@ function tmrFinish() {
   }
 }
 
+// Importa la actividad del Whoop del día al log (duración, distancia, FC, zonas)
+async function importWhoopCardio(typeId, dateStr) {
+  try {
+    const { data, error } = await sb.from('whoop_workouts')
+      .select('sport_name,start_at,duration_min,strain,avg_hr,max_hr,distance_meter,zone_durations')
+      .gte('start_at', dateStr + 'T00:00:00')
+      .lte('start_at', dateStr + 'T23:59:59.999')
+      .order('start_at', { ascending: false });
+    if (error) throw error;
+    if (!data || !data.length) { toast('El Whoop no tiene actividad ese día — sincronizá primero (↻ del header)', true); return; }
+    const pref = data.find(w => /run/i.test(w.sport_name || '')) || data[0];
+    const zd = pref.zone_durations || {};
+    const keys = [['zone_one_milli','Z1'],['zone_two_milli','Z2'],['zone_three_milli','Z3'],['zone_four_milli','Z4'],['zone_five_milli','Z5']];
+    const tot = keys.reduce((a, [k]) => a + (zd[k] || 0), 0) + (zd.zone_zero_milli || 0);
+    const zonesTxt = tot ? ' · ' + keys.map(([k, n]) => `${n} ${Math.round((zd[k] || 0) / tot * 100)}%`).join(' / ') : '';
+    const whoopTxt = `Whoop: ${pref.duration_min} min · strain ${Math.round(pref.strain * 10) / 10} · FC ${pref.avg_hr} prom / ${pref.max_hr} máx${zonesTxt}`;
+    if (currentDraft) {
+      if (typeId === 'z2') {
+        currentDraft.duration_min = String(pref.duration_min || '');
+        currentDraft.duration_sec = '0';
+        if (pref.distance_meter) currentDraft.distance = String(Math.round(pref.distance_meter / 10) / 100);
+      }
+      currentDraft.notes = ((currentDraft.notes || '').replace(/Whoop:[^·]*(·[^·]*)*$/, '').trim());
+      currentDraft.notes = (currentDraft.notes ? currentDraft.notes + ' · ' : '') + whoopTxt;
+      saveDraft(typeId, dateStr, currentDraft);
+    }
+    if (typeId === 'z2') renderZ2Day(dateStr); else renderSprintsDay(dateStr);
+    toast('Datos del Whoop importados ✓');
+  } catch (e) { toast('No pude importar: ' + (e.message || e), true); }
+}
+
 function renderZ2Day(dateStr) {
   const week = getCurrentWeek();
   const prescription = CARDIO_PROGRESSION.z2.find(p => p.week === week) || CARDIO_PROGRESSION.z2[CARDIO_PROGRESSION.z2.length - 1];
@@ -2443,8 +2475,9 @@ function renderZ2Day(dateStr) {
     <div class="cardio-prescription">
       <div class="label">Plan de hoy · Semana ${week}</div>
       <div class="value">${prescription.duration} min Z2</div>
-      <div class="meta">Conversacional · 65-75% FCmax · aire libre</div>
+      <div class="meta">Trote 7,5 · caminata 6,0 · cortá al tocar 146 ppm, retomá en 135</div>
     </div>
+    <button onclick="importWhoopCardio('z2','${dateStr}')" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:12px">⌚ Traer datos del Whoop</button>
     <div class="cardio-log-form">
       <div class="form-field">
         <label>Duración</label>
