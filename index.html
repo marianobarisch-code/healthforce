@@ -675,7 +675,8 @@ const EXERCISES_BASE = [
   { id: 'suitcase-carry', name: 'Suitcase carry', primary: 'Core', secondary: ['Antebrazos'] },
   { id: 'side-plank', name: 'Plancha lateral', primary: 'Core', secondary: [] },
   { id: 'tibialis-raise', name: 'Elevación tibial', primary: 'Pantorrillas', secondary: [] },
-  { id: 'hip-flexor-cable', name: 'Flexión de cadera en polea', primary: 'Piernas', secondary: ['Core'] }
+  { id: 'hip-flexor-cable', name: 'Flexión de cadera en polea', primary: 'Piernas', secondary: ['Core'] },
+  { id: 'incline-machine-press', name: 'Press inclinado máquina (Technogym)', primary: 'Pecho', secondary: ['Hombros','Tríceps'] }
 ];
 
 const DAY_EXERCISES = {
@@ -690,8 +691,8 @@ const DAY_EXERCISES = {
     { id: 'pallof-press', sets: 3, reps: '10 por lado', rir: '', ss_group: 2, notes: 'Core A' }
   ],
   empuje: [
-    { id: 'bench-press', sets: 4, reps: '4-6', rir: 'RIR 1-2', ss_group: null, notes: 'FUERZA · único pesado · descanso 2-3 min' },
-    { id: 'incline-db', sets: 3, reps: '8-10', rir: 'RIR 1', ss_group: null, notes: 'Moderado · pecho clavicular (~32 kg)' },
+    { id: 'incline-machine-press', sets: 4, reps: '4-6', rir: 'RIR 1-2', ss_group: null, notes: 'FUERZA · único pesado · seguro sin spotter, apretá tranquilo · descanso 2-3 min' },
+    { id: 'db-bench', sets: 3, reps: '8-10', rir: 'RIR 1', ss_group: null, notes: 'Moderado · pecho plano · con mancuernas nunca quedás clavado' },
     { id: 'pec-deck', sets: 3, reps: '10-12', rir: 'RIR 1', ss_group: 1, notes: 'SS1 · apertura' },
     { id: 'lateral-raise-db', sets: 3, reps: '12-15', rir: 'RIR 0-1', ss_group: 1, notes: 'SS1 · deltoide lateral · 10-12 kg (el hombro pesado ahora es el lunes)' },
     { id: 'overhead-ext-rope', sets: 3, reps: '10-12', rir: 'RIR 1', ss_group: null, notes: 'Tríceps' },
@@ -2001,8 +2002,10 @@ const EXERCISE_ALTERNATIVES = {
   'rear-delt-fly': ['face-pull'],
   'incline-db-curl': ['db-curl', 'hammer-curl', 'preacher-curl'],
   'machine-ohp': ['db-ohp', 'ohp'],
-  'bench-press': ['db-bench', 'incline-db'],
-  'incline-db': ['db-bench', 'bench-press'],
+  'incline-machine-press': ['incline-db', 'bench-press', 'db-bench'],
+  'bench-press': ['incline-machine-press', 'db-bench', 'incline-db'],
+  'db-bench': ['bench-press', 'incline-db', 'incline-machine-press'],
+  'incline-db': ['incline-machine-press', 'db-bench', 'bench-press'],
   'pec-deck': ['cable-fly', 'chest-fly'],
   'lateral-raise-db': ['lateral-raise-cable'],
   'lateral-raise-cable': ['lateral-raise-db'],
