@@ -676,7 +676,8 @@ const EXERCISES_BASE = [
   { id: 'side-plank', name: 'Plancha lateral', primary: 'Core', secondary: [] },
   { id: 'tibialis-raise', name: 'Elevación tibial', primary: 'Pantorrillas', secondary: [] },
   { id: 'hip-flexor-cable', name: 'Flexión de cadera en polea', primary: 'Piernas', secondary: ['Core'] },
-  { id: 'incline-machine-press', name: 'Press inclinado máquina (Technogym)', primary: 'Pecho', secondary: ['Hombros','Tríceps'] }
+  { id: 'incline-machine-press', name: 'Press inclinado máquina (Technogym)', primary: 'Pecho', secondary: ['Hombros','Tríceps'] },
+  { id: 'user-m-quina-adductor-1786553665627', name: 'Máquina aductores', primary: 'Piernas', secondary: [] }
 ];
 
 const DAY_EXERCISES = {
@@ -703,7 +704,7 @@ const DAY_EXERCISES = {
     { id: 'rdl', sets: 3, reps: '10-12', rir: 'RIR 2-3', ss_group: null, notes: 'EL EJE · bilateral · arranque 45 · +5/sem solo si pasa la regla del día siguiente · (calor a ojo: RDL liviano + ATG)' },
     { id: 'bulgarian-split', sets: 3, reps: '8 por pierna', rir: 'RIR 1-2', ss_group: null, notes: 'Glúteo medio + cuádriceps sin columna · 14 kg' },
     { id: 'hip-flexor-cable', sets: 2, reps: '10-12 por lado', rir: 'liviano y controlado', ss_group: 1, notes: 'SS1 · psoas (zancada/sprint) + estabilidad de apoyo · tobillera en polea baja' },
-    { id: 'cossack-squat', sets: 2, reps: '6-8 por lado', rir: 'peso corporal', ss_group: 1, notes: 'SS1 · plano lateral · rango primero, peso después' },
+    { id: 'user-m-quina-adductor-1786553665627', sets: 3, reps: '8-12', rir: 'RIR 1-2', ss_group: 1, notes: 'SS1 · aductores (reemplazó al Cossack — el Cossack queda de movilidad en el calor)' },
     { id: 'calf-raise', sets: 2, reps: '12-15', rir: 'moderado', ss_group: 2, notes: 'SS2 cierre · el dedo tiene veto: molestia = cortar' },
     { id: 'tibialis-raise', sets: 2, reps: '15', rir: '', ss_group: 2, notes: 'SS2 cierre · tobillo' }
   ],
@@ -837,7 +838,11 @@ function clearDraft(typeId, dateStr) {
   localStorage.setItem(STORAGE_KEYS.draftWorkouts, JSON.stringify(drafts));
 }
 
-function getAllExercises() { return [...EXERCISES_BASE, ...loadUserExercises()]; }
+function getAllExercises() {
+  // base + custom del usuario, sin duplicar ids (el custom local pisa al base)
+  const seen = new Set();
+  return [...loadUserExercises(), ...EXERCISES_BASE].filter(e => seen.has(e.id) ? false : (seen.add(e.id), true));
+}
 function findExercise(id) { return getAllExercises().find(e => e.id === id); }
 function getExerciseMeta(typeId, exId) { return (DAY_EXERCISES[typeId] || []).find(p => p.id === exId); }
 function todayStr() { return dateToISO(new Date()); }
@@ -2016,7 +2021,8 @@ const EXERCISE_ALTERNATIVES = {
   'hip-thrust': ['rdl'],
   'leg-curl': ['rdl', 'hip-thrust'],
   'bulgarian-split': ['atg-split-squat', 'leg-extension'],
-  'cossack-squat': ['atg-split-squat'],
+  'cossack-squat': ['user-m-quina-adductor-1786553665627', 'atg-split-squat'],
+  'user-m-quina-adductor-1786553665627': ['cossack-squat', 'copenhagen-plank'],
   'atg-split-squat': ['cossack-squat', 'bulgarian-split'],
   'hip-flexor-cable': ['hanging-leg-raise'],
   'calf-raise': ['tibialis-raise'],
