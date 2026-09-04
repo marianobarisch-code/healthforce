@@ -677,7 +677,8 @@ const EXERCISES_BASE = [
   { id: 'tibialis-raise', name: 'Elevación tibial', primary: 'Pantorrillas', secondary: [] },
   { id: 'hip-flexor-cable', name: 'Flexión de cadera en polea', primary: 'Piernas', secondary: ['Core'] },
   { id: 'incline-machine-press', name: 'Press inclinado máquina (Technogym)', primary: 'Pecho', secondary: ['Hombros','Tríceps'] },
-  { id: 'user-m-quina-adductor-1786553665627', name: 'Máquina aductores', primary: 'Piernas', secondary: [] }
+  { id: 'user-m-quina-adductor-1786553665627', name: 'Máquina aductores', primary: 'Piernas', secondary: [] },
+  { id: 'wall-handstand', name: 'Vertical contra la pared (hold)', primary: 'Hombros', secondary: ['Core'] }
 ];
 
 const DAY_EXERCISES = {
@@ -807,7 +808,7 @@ const EXERCISE_EQUIPMENT = {
 const INCREMENTS = { barbell: 5, dumbbells: 2, machine: 2.5, bodyweight: 2.5 };
 
 // Ejercicios donde la "carga" se mide en segundos en vez de kilos.
-const TIME_BASED_EXERCISES = new Set(['copenhagen-plank', 'plank', 'hyperextension', 'side-plank']);
+const TIME_BASED_EXERCISES = new Set(['copenhagen-plank', 'plank', 'hyperextension', 'side-plank', 'wall-handstand']);
 function isTimeBased(exId) { return TIME_BASED_EXERCISES.has(exId); }
 function loadUnit(exId) { return isTimeBased(exId) ? 'seg' : 'kg'; }
 function loadUnitLabel(exId) { return isTimeBased(exId) ? 'Tiempo (seg)' : 'Peso (kg)'; }
