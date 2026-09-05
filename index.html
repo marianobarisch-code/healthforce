@@ -391,6 +391,7 @@
     <div id="nutrition-summary"></div>
     <div id="steps-card"></div>
     <div id="weight-card"></div>
+    <div id="quicklog-row"></div>
   </div>
   <div id="home-week"></div>
   <div id="home-historico"></div>
@@ -3757,9 +3758,20 @@ function saveBodyWeightToday() {
   bwEditing = false; renderWeightCard(); toast('Peso guardado ✓');
 }
 let bwEditing = false;
+function renderQuickLogRow() {
+  const el = document.getElementById('quicklog-row'); if (!el) return;
+  const missing = [];
+  if (!getMeals().length) missing.push(`<button onclick="showScreen('nutrition')" style="background:var(--surface);border:1px solid var(--border);border-radius:999px;color:var(--text-2);font-size:12px;font-weight:700;padding:7px 13px;cursor:pointer">🍗 Comida</button>`);
+  if (!getSteps()) missing.push(`<button onclick="stepsEditing=true;renderStepsCard();const i=document.getElementById('steps-input');if(i){i.focus()}" style="background:var(--surface);border:1px solid var(--border);border-radius:999px;color:var(--text-2);font-size:12px;font-weight:700;padding:7px 13px;cursor:pointer">👟 Pasos</button>`);
+  if (!Object.keys(loadBodyWeight()).length && !bwEditing) missing.push(`<button onclick="bwEditing=true;renderWeightCard();const i=document.getElementById('bw-input');if(i){i.focus()}" style="background:var(--surface);border:1px solid var(--border);border-radius:999px;color:var(--text-2);font-size:12px;font-weight:700;padding:7px 13px;cursor:pointer">⚖️ Peso</button>`);
+  el.innerHTML = missing.length
+    ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px"><span style="color:var(--text-3);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Registrar</span>${missing.join('')}</div>`
+    : '';
+}
 function renderWeightCard() {
   const el = document.getElementById('weight-card'); if (!el) return;
   const m = loadBodyWeight();
+  if (!Object.keys(m).length && !bwEditing) { el.innerHTML = ''; renderQuickLogRow(); return; }
   const dates = Object.keys(m).sort();
   const last = dates.length ? { date: dates[dates.length - 1], v: m[dates[dates.length - 1]] } : null;
   const prev = dates.length > 1 ? m[dates[dates.length - 2]] : null;
@@ -3870,81 +3882,64 @@ function renderProgress() {
   // datos
   const withData = KEY_LIFTS.filter(([id]) => liftHistory(id).length >= 2);
   if (!pgExercise || !withData.some(([id]) => id === pgExercise)) pgExercise = withData.length ? withData[0][0] : null;
-  const wk = workoutsThisWeek().filter(w => w.type_id !== 'rest');
-  // racha: semanas consecutivas (hacia atrás desde la actual o la pasada) con ≥3 sesiones
-  let streak = 0;
-  for (let i = 0; i < 26; i++) {
-    const m = addDaysISO(mondayOf(todayStr()), -7 * i);
-    const n = loadWorkouts().filter(w => w.date >= m && w.date <= addDaysISO(m, 6) && w.type_id !== 'rest').length;
-    if (n >= 3) streak++; else if (i === 0) continue; else break;
-  }
-  // PRs
-  const prPress = Math.max(0, ...liftHistory('bench-press').map(h => h.e1rm), ...liftHistory('incline-machine-press').map(h => h.e1rm));
-  const prJalon = Math.max(0, ...liftHistory('lat-pulldown').map(h => h.e1rm));
-  const prRdl = Math.max(0, ...liftHistory('rdl').map(h => h.e1rm));
-  const tile = (label, val, sub) => `<div style="flex:1;min-width:100px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px"><div style="color:var(--text-3);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px">${label}</div><div style="font-size:24px;font-weight:800;margin-top:2px">${val}</div><div style="color:var(--text-3);font-size:11px">${sub}</div></div>`;
-  // aeróbico: línea de base + corridas con ritmo registrado
-  const AEROBIC_SEED = [{ date: '2026-07-29', v: 7.6, note: 'FC alta' }, { date: '2026-08-15', v: 7.0, note: 'base @140' }];
+  // ── NORTH STAR: eficiencia aeróbica (km/h @ 140 ppm) ──
+  const NS_TARGET = 9.0, NS_BASE = 7.0;
+  const AEROBIC_SEED = [{ date: '2026-08-15', v: 7.0 }]; // línea de base oficial @140
   const aeroLogged = loadWorkouts().filter(w => w.type_id === 'z2' && w.avg_pace && +w.avg_pace > 3).map(w => ({ date: w.date, v: +w.avg_pace }));
   const aeroMap = {};
   AEROBIC_SEED.forEach(p => aeroMap[p.date] = p.v);
   aeroLogged.forEach(p => aeroMap[p.date] = p.v);
   const aero = Object.keys(aeroMap).sort().map(d => ({ date: d, v: aeroMap[d] }));
-  // sesiones por semana (últimas 8)
-  const weeks = [];
-  for (let i = 7; i >= 0; i--) {
-    const m = addDaysISO(mondayOf(todayStr()), -7 * i);
-    weeks.push({ label: m.slice(5).replace('-', '/'), n: loadWorkouts().filter(w => w.date >= m && w.date <= addDaysISO(m, 6) && w.type_id !== 'rest').length });
-  }
+  const nsNow = aero.length ? aero[aero.length - 1].v : NS_BASE;
+  const nsPct = Math.max(0, Math.min(100, Math.round((nsNow - NS_BASE) / (NS_TARGET - NS_BASE) * 100)));
+  const nsDelta = nsNow - NS_BASE;
   // puertas del pádel
   const z2max = Math.max(31, ...loadWorkouts().filter(w => w.type_id === 'z2' && w.duration).map(w => +w.duration || 0));
   const sprintsDone = loadWorkouts().filter(w => w.type_id === 'sprints' && w.date >= '2026-07-27').length;
   const gate = (name, pct, sub) => `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="font-weight:700">${name}</span><span style="color:var(--text-3)">${sub}</span></div><div style="height:8px;background:var(--surface-2);border-radius:99px"><div style="height:100%;width:${pct}%;background:var(--accent);border-radius:99px"></div></div></div>`;
   const selOpts = withData.map(([id, name]) => `<option value="${id}" ${id === pgExercise ? 'selected' : ''}>${name}</option>`).join('');
+  const prTxt = (() => {
+    const p = Math.max(0, ...liftHistory('bench-press').map(h => h.e1rm), ...liftHistory('incline-machine-press').map(h => h.e1rm));
+    const j = Math.max(0, ...liftHistory('lat-pulldown').map(h => h.e1rm));
+    const r = Math.max(0, ...liftHistory('rdl').map(h => h.e1rm));
+    const parts = [];
+    if (p) parts.push(`press ~${Math.round(p)}`); if (j) parts.push(`jalón ~${Math.round(j)}`); if (r) parts.push(`RDL ~${Math.round(r)}`);
+    return parts.length ? 'PRs (1RM est.): ' + parts.join(' · ') : '';
+  })();
   el.innerHTML = `
-    <div style="display:flex;gap:10px;margin-bottom:14px">
-      ${tile('Esta semana', `${wk.length}<span style="font-size:14px;color:var(--text-3)">/${WEEK_SEQUENCE.length}</span>`, 'sesiones')}
-      ${tile('Racha', `${streak}<span style="font-size:14px;color:var(--text-3)"> sem</span>`, '≥3 sesiones/sem')}
-    </div>
-    <div style="display:flex;gap:10px;margin-bottom:18px">
-      ${tile('PR press', prPress ? Math.round(prPress) : '—', '1RM estimado')}
-      ${tile('PR jalón', prJalon ? Math.round(prJalon) : '—', '1RM estimado')}
-      ${tile('PR RDL', prRdl ? Math.round(prRdl) : '—', '1RM estimado')}
+    <div style="background:linear-gradient(135deg, var(--surface), #1d2410);border:1px solid var(--accent);border-radius:var(--radius-lg);padding:20px 16px;margin-bottom:16px">
+      <div style="color:var(--text-2);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">⭐ Tu métrica — motor aeróbico</div>
+      <div style="display:flex;align-items:baseline;gap:8px">
+        <span style="font-size:44px;font-weight:900;color:var(--accent);line-height:1">${nsNow.toFixed(1)}</span>
+        <span style="color:var(--text-2);font-size:14px;font-weight:700">km/h @ 140 ppm</span>
+      </div>
+      <div style="color:var(--text-3);font-size:12px;margin:6px 0 10px">${nsDelta > 0.05 ? `+${nsDelta.toFixed(1)} desde la base · ` : ''}Meta: <strong style="color:var(--text)">9,0</strong> = correr 5K cómodo y pádel sobrado. Sube sola con cada Z2 que cargues con ritmo.</div>
+      <div style="height:10px;background:rgba(0,0,0,.35);border-radius:99px"><div style="height:100%;width:${nsPct}%;background:var(--accent);border-radius:99px;min-width:4px"></div></div>
+      <div style="display:flex;justify-content:space-between;color:var(--text-3);font-size:11px;margin-top:4px"><span>7,0 (15 ago)</span><span>${nsPct}%</span><span>9,0</span></div>
+      ${aero.length > 1 ? '<canvas id="pg-aero" height="120" style="margin-top:12px"></canvas>' : '<div style="color:var(--text-3);font-size:12px;margin-top:10px">La curva aparece con tu próxima corrida cargada 🏃</div>'}
     </div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:14px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <span style="font-weight:800;font-size:14px">🏋️ Fuerza (1RM estimado)</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <span style="font-weight:800;font-size:14px">🏋️ Fuerza</span>
         <select onchange="pgExercise=this.value;renderProgress()" style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:6px 8px;font-size:12px">${selOpts}</select>
       </div>
-      ${pgExercise ? '<canvas id="pg-strength" height="170"></canvas>' : '<div style="color:var(--text-3);font-size:13px">Todavía no hay suficientes sesiones — seguí cargando 💪</div>'}
-    </div>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:14px">
-      <div style="font-weight:800;font-size:14px;margin-bottom:2px">🏃 Motor aeróbico</div>
-      <div style="color:var(--text-3);font-size:11px;margin-bottom:10px">km/h en Z2 — misma frecuencia cardíaca, más velocidad = el motor creciendo</div>
-      <canvas id="pg-aero" height="150"></canvas>
-    </div>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:14px">
-      <div style="font-weight:800;font-size:14px;margin-bottom:10px">📅 Constancia (sesiones por semana)</div>
-      <canvas id="pg-weeks" height="140"></canvas>
+      ${prTxt ? `<div style="color:var(--text-3);font-size:11px;margin-bottom:8px">${prTxt}</div>` : ''}
+      ${pgExercise ? '<canvas id="pg-strength" height="150"></canvas>' : '<div style="color:var(--text-3);font-size:13px">Se dibuja con 2+ sesiones por ejercicio 💪</div>'}
     </div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:20px">
       <div style="font-weight:800;font-size:14px;margin-bottom:10px">🎾 Puertas del pádel</div>
       ${gate('1 · 30\' trote continuo en Z2', Math.min(95, Math.round(z2max / 30 * 95)), `mejor: ${Math.round(z2max)}' — falta confirmar 1 continua`)}
       ${gate('2 · Pasadas sin molestias del dedo', Math.min(100, sprintsDone * 25), `${sprintsDone}/4 sesiones del programa`)}
     </div>`;
-  // charts
-  ['_pg1', '_pg2', '_pg3'].forEach(k => { if (window[k]) { window[k].destroy(); window[k] = null; } });
+  ['_pg1', '_pg2'].forEach(k => { if (window[k]) { window[k].destroy(); window[k] = null; } });
   const base = { responsive: true, plugins: { legend: { display: false } } };
-  const scale = c => ({ x: { ticks: { color: C.text, font: { size: 10 } }, grid: { color: C.grid } }, y: { ticks: { color: C.text, font: { size: 10 } }, grid: { color: C.grid }, beginAtZero: false } });
+  const scale = () => ({ x: { ticks: { color: C.text, font: { size: 10 } }, grid: { color: C.grid } }, y: { ticks: { color: C.text, font: { size: 10 } }, grid: { color: C.grid }, beginAtZero: false } });
   if (pgExercise && document.getElementById('pg-strength')) {
     const h = liftHistory(pgExercise);
     window._pg1 = new Chart(document.getElementById('pg-strength'), { type: 'line', data: { labels: h.map(x => x.date.slice(5).replace('-', '/')), datasets: [{ data: h.map(x => Math.round(x.e1rm * 10) / 10), borderColor: C.accent, backgroundColor: C.accent, tension: .25, pointRadius: 4 }] }, options: Object.assign({}, base, { scales: scale() }) });
   }
   if (document.getElementById('pg-aero')) {
-    window._pg2 = new Chart(document.getElementById('pg-aero'), { type: 'line', data: { labels: aero.map(x => x.date.slice(5).replace('-', '/')), datasets: [{ data: aero.map(x => x.v), borderColor: C.accent2, backgroundColor: C.accent2, tension: .25, pointRadius: 4 }] }, options: Object.assign({}, base, { scales: scale() }) });
-  }
-  if (document.getElementById('pg-weeks')) {
-    window._pg3 = new Chart(document.getElementById('pg-weeks'), { type: 'bar', data: { labels: weeks.map(w => w.label), datasets: [{ data: weeks.map(w => w.n), backgroundColor: weeks.map(w => w.n >= 4 ? C.accent : w.n >= 2 ? '#8a9a3d' : '#3a3a3a'), borderRadius: 6 }] }, options: Object.assign({}, base, { scales: { x: { ticks: { color: C.text, font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: C.text, stepSize: 1 }, grid: { color: C.grid }, beginAtZero: true, suggestedMax: 6 } } }) });
+    window._pg2 = new Chart(document.getElementById('pg-aero'), { type: 'line', data: { labels: aero.map(x => x.date.slice(5).replace('-', '/')), datasets: [{ data: aero.map(x => x.v), borderColor: C.accent, backgroundColor: C.accent, tension: .25, pointRadius: 4 }] }, options: Object.assign({}, base, { scales: scale() }) });
   }
 }
 
@@ -4051,6 +4046,7 @@ function renderStepsCard() {
   const el = document.getElementById('steps-card');
   if (!el) return;
   const goal = 10000, per = 1000, steps = getSteps();
+  if (!steps && !stepsEditing) { el.innerHTML = ''; renderQuickLogRow(); return; }
   const remaining = Math.max(0, goal - steps);
   let squares = '';
   for (let i = 0; i < 10; i++) {
@@ -4156,6 +4152,8 @@ function renderNutritionSummary() {
   const el = document.getElementById('nutrition-summary');
   if (!el) return;
   const T = nutTotals(getMeals());
+  // sin datos del día → no mostrar la card (el chip de "Registrar" cubre el acceso)
+  if (!getMeals().length) { el.innerHTML = ''; renderQuickLogRow(); return; }
   const bar = (label, val, goal, unit, color) => {
     const pct = Math.min(100, Math.round((goal ? val / goal : 0) * 100));
     return `<div style="margin-bottom:10px">
