@@ -688,14 +688,16 @@ const EXERCISES_BASE = [
   { id: 'hip-flexor-cable', name: 'Flexión de cadera en polea', primary: 'Piernas', secondary: ['Core'] },
   { id: 'incline-machine-press', name: 'Press inclinado máquina (Technogym)', primary: 'Pecho', secondary: ['Hombros','Tríceps'] },
   { id: 'user-m-quina-adductor-1786553665627', name: 'Máquina aductores', primary: 'Piernas', secondary: [] },
-  { id: 'wall-handstand', name: 'Vertical contra la pared (hold)', primary: 'Hombros', secondary: ['Core'] }
+  { id: 'wall-handstand', name: 'Vertical contra la pared (hold)', primary: 'Hombros', secondary: ['Core'] },
+  { id: 'pike-pushup', name: 'Pike push-up (flexión en pica)', primary: 'Hombros', secondary: ['Core','Tríceps'] }
 ];
 
 const DAY_EXERCISES = {
   free: [],
   tiron: [
     { id: 'lat-pulldown', sets: 4, reps: '4-6', rir: 'RIR 1-2', ss_group: null, notes: 'FUERZA · tirón pesado (las dominadas viven en el parque) · descanso 2-3 min' },
-    { id: 'machine-ohp', sets: 3, reps: '6-8', rir: 'RIR 1-2', ss_group: null, notes: 'FUERZA · hombro fresco, acá sí pesado · descanso 2 min' },
+    { id: 'db-ohp', sets: 3, reps: '8-10', rir: 'RIR 2 · liviano 2 semanas', ss_group: null, notes: 'SENTADO · agarre neutro · arranque 20-22/mano · la máquina se retiró (dolía cuello, ambos lados) · hombros lejos de las orejas' },
+    { id: 'pike-pushup', sets: 2, reps: '6-10', rir: 'peso corporal', ss_group: null, notes: 'Base de hombro estable (idea de Mariano) · cola arriba, cabeza al piso · combina con la vertical' },
     { id: 'technogym-row', sets: 3, reps: '8-10', rir: 'RIR 1', ss_group: null, notes: 'Moderado · horizontal (o remo unilateral)' },
     { id: 'face-pull', sets: 3, reps: '12-15', rir: 'RIR 0-1', ss_group: 1, notes: 'SS1 · hombro posterior' },
     { id: 'incline-db-curl', sets: 3, reps: '10-12', rir: 'RIR 0-1', ss_group: 1, notes: 'SS1 · bíceps' },
@@ -2020,6 +2022,8 @@ const EXERCISE_ALTERNATIVES = {
   'rear-delt-fly': ['face-pull'],
   'incline-db-curl': ['db-curl', 'hammer-curl', 'preacher-curl'],
   'machine-ohp': ['db-ohp', 'ohp'],
+  'db-ohp': ['pike-pushup', 'ohp', 'machine-ohp'],
+  'pike-pushup': ['db-ohp', 'wall-handstand'],
   'incline-machine-press': ['incline-db', 'bench-press', 'db-bench'],
   'bench-press': ['incline-machine-press', 'db-bench', 'incline-db'],
   'db-bench': ['bench-press', 'incline-db', 'incline-machine-press'],
