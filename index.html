@@ -689,7 +689,10 @@ const EXERCISES_BASE = [
   { id: 'incline-machine-press', name: 'Press inclinado máquina (Technogym)', primary: 'Pecho', secondary: ['Hombros','Tríceps'] },
   { id: 'user-m-quina-adductor-1786553665627', name: 'Máquina aductores', primary: 'Piernas', secondary: [] },
   { id: 'wall-handstand', name: 'Vertical contra la pared (hold)', primary: 'Hombros', secondary: ['Core'] },
-  { id: 'pike-pushup', name: 'Pike push-up (flexión en pica)', primary: 'Hombros', secondary: ['Core','Tríceps'] }
+  { id: 'pike-pushup', name: 'Pike push-up (flexión en pica)', primary: 'Hombros', secondary: ['Core','Tríceps'] },
+  { id: 'user-remo-incl-polea-1788781429587', name: 'Remo incl. Polea', primary: 'Espalda', secondary: ['Bíceps'] },
+  { id: 'user-farmer-carry-1788784113597', name: 'Farmer Carry', primary: 'Core', secondary: ['Antebrazos'] },
+  { id: 'user-ball-plank-circles-1788529457234', name: 'Ball Plank Circles', primary: 'Core', secondary: [] }
 ];
 
 const DAY_EXERCISES = {
@@ -698,7 +701,7 @@ const DAY_EXERCISES = {
     { id: 'lat-pulldown', sets: 4, reps: '4-6', rir: 'RIR 1-2', ss_group: null, notes: 'FUERZA · tirón pesado (las dominadas viven en el parque) · descanso 2-3 min' },
     { id: 'db-ohp', sets: 3, reps: '8-10', rir: 'RIR 2 · liviano 2 semanas', ss_group: null, notes: 'SENTADO · agarre neutro · arranque 20-22/mano · la máquina se retiró (dolía cuello, ambos lados) · hombros lejos de las orejas' },
     { id: 'pike-pushup', sets: 2, reps: '6-10', rir: 'peso corporal', ss_group: null, notes: 'Base de hombro estable (idea de Mariano) · cola arriba, cabeza al piso · combina con la vertical' },
-    { id: 'technogym-row', sets: 3, reps: '8-10', rir: 'RIR 1', ss_group: null, notes: 'Moderado · horizontal (o remo unilateral)' },
+    { id: 'user-remo-incl-polea-1788781429587', sets: 3, reps: '8-10', rir: 'RIR 1', ss_group: null, notes: 'Horizontal · pecho apoyado = cero lumbar/sacro · agarre neutro · titular desde 7/9 (reemplazó al Technogym)' },
     { id: 'face-pull', sets: 3, reps: '12-15', rir: 'RIR 0-1', ss_group: 1, notes: 'SS1 · hombro posterior' },
     { id: 'incline-db-curl', sets: 3, reps: '10-12', rir: 'RIR 0-1', ss_group: 1, notes: 'SS1 · bíceps' },
     { id: 'dead-bug', sets: 3, reps: '10', rir: '', ss_group: 2, notes: 'Core A' },
@@ -2016,7 +2019,8 @@ function loadOrCreateDraft(typeId, dateStr, factory) {
 const EXERCISE_ALTERNATIVES = {
   'lat-pulldown': ['pull-ups', 'cable-row'],
   'pull-ups': ['lat-pulldown'],
-  'technogym-row': ['db-row-uni', 'cable-row', 'barbell-row'],
+  'technogym-row': ['user-remo-incl-polea-1788781429587', 'db-row-uni', 'cable-row'],
+  'user-remo-incl-polea-1788781429587': ['technogym-row', 'db-row-uni', 'cable-row'],
   'db-row-uni': ['technogym-row', 'cable-row'],
   'cable-row': ['technogym-row', 'db-row-uni'],
   'face-pull': ['rear-delt-fly'],
@@ -2047,7 +2051,8 @@ const EXERCISE_ALTERNATIVES = {
   'squat': ['front-squat', 'bulgarian-split'],
   'dead-bug': ['plank', 'cable-crunch'],
   'pallof-press': ['side-plank', 'plank'],
-  'suitcase-carry': ['side-plank', 'plank'],
+  'suitcase-carry': ['user-farmer-carry-1788784113597', 'side-plank', 'plank'],
+  'user-farmer-carry-1788784113597': ['suitcase-carry', 'side-plank'],
   'side-plank': ['plank', 'pallof-press'],
   'hyperextension': ['rdl']
 };
