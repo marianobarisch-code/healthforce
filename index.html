@@ -481,7 +481,7 @@
   <div class="header"><h1>Ajustes</h1></div>
   <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Conexiones</div>
   <div id="gcal-card"></div>
-  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.09.04</strong></div>
+  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.09.09</strong></div>
 </section>
 
 <nav class="nav" id="bottom-nav">
@@ -861,7 +861,24 @@ function getAllExercises() {
   return [...loadUserExercises(), ...EXERCISES_BASE].filter(e => seen.has(e.id) ? false : (seen.add(e.id), true));
 }
 function findExercise(id) { return getAllExercises().find(e => e.id === id); }
-function getExerciseMeta(typeId, exId) { return (DAY_EXERCISES[typeId] || []).find(p => p.id === exId); }
+// Excepciones de UN día puntual (clave 'YYYY-MM-DD|typeId'). Expiran solas: pasada la fecha, el día vuelve al plan normal.
+const DAY_EXCEPTIONS = {
+  // 9/9: pinchazo lumbar → RDL descansa, hip thrust es el eje (columna apoyada, cero carga axial)
+  '2026-09-09|piernas': [
+    { id: 'hip-thrust', sets: 3, reps: '8-10', rir: 'RIR 2-3 · calibrar', ss_group: null, notes: 'EXCEPCIÓN DE HOY: eje en vez del RDL (lumbar con pinchazo) · arranque 40-50 · pausa 1seg arriba apretando glúteo · calor: gato-camello + puente sin peso + ATG' },
+    { id: 'bulgarian-split', sets: 3, reps: '8 por pierna', rir: 'RIR 1-2', ss_group: null, notes: 'Torso vertical · 14 kg · solo si NO pincha — si pincha, saltear sin culpa' },
+    { id: 'hip-flexor-cable', sets: 2, reps: '10-12 por lado', rir: 'liviano y controlado', ss_group: 1, notes: 'SS1 · psoas · tobillera en polea baja' },
+    { id: 'user-m-quina-adductor-1786553665627', sets: 3, reps: '8-12', rir: 'RIR 1-2', ss_group: 1, notes: 'SS1 · aductores' },
+    { id: 'calf-raise', sets: 2, reps: '12-15', rir: 'moderado', ss_group: 2, notes: 'SS2 cierre · el dedo tiene veto' },
+    { id: 'tibialis-raise', sets: 2, reps: '15', rir: '', ss_group: 2, notes: 'SS2 cierre · tobillo' },
+    { id: 'hyperextension', sets: 2, reps: '45-90 seg', rir: 'isométrica', ss_group: 2, notes: 'SS2 cierre · te alivia el sacro — pero si HOY reproduce el pinchazo, afuera' }
+  ]
+};
+function dayPrescription(typeId, ds) { return DAY_EXCEPTIONS[ds + '|' + typeId] || DAY_EXERCISES[typeId] || []; }
+function getExerciseMeta(typeId, exId) {
+  const exc = DAY_EXCEPTIONS[(currentDayDate || '') + '|' + typeId];
+  return (exc && exc.find(p => p.id === exId)) || (DAY_EXERCISES[typeId] || []).find(p => p.id === exId);
+}
 function todayStr() { return dateToISO(new Date()); }
 function dateToISO(d) {
   const y = d.getFullYear();
@@ -2087,7 +2104,7 @@ function swapExercise(exId) {
 }
 
 function renderStrengthDay(typeId, dateStr) {
-  const prescribed = DAY_EXERCISES[typeId] || [];
+  const prescribed = dayPrescription(typeId, dateStr);
   const draft = loadOrCreateDraft(typeId, dateStr, () => {
     const d = { type_id: typeId, date: dateStr, sets: {}, exercise_order: [] };
     prescribed.forEach(p => {
