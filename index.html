@@ -4445,9 +4445,14 @@ async function autoSyncIntegrations(minIntervalMin = 3) {
 
 // Pistas de deporte Whoop por tipo de día (para emparejar el workout correcto)
 const WHOOP_SPORT_HINTS = {
-  z2: ['run'], sprints: ['run', 'interval', 'hiit'],
+  // 'walk' en z2: desde 9/26 el día Z2 es caminata inclinada, no solo trote
+  z2: ['run', 'walk'], sprints: ['run', 'interval', 'hiit'],
   padel: ['padel', 'tennis', 'squash', 'racquet'],
   natacion: ['swim'],
+  tiron: ['weight', 'strength', 'function', 'activity'],
+  empuje: ['weight', 'strength', 'function', 'activity'],
+  piernas: ['weight', 'strength', 'function', 'activity'],
+  mobility: ['yoga', 'stretch', 'mobility', 'pilates'],
   'upper-a': ['weight', 'strength', 'function', 'activity'],
   'upper-b': ['weight', 'strength', 'function', 'activity'],
   day3: ['weight', 'strength', 'function', 'activity'],
