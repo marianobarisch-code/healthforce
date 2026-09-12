@@ -866,6 +866,14 @@ function getAllExercises() {
 function findExercise(id) { return getAllExercises().find(e => e.id === id); }
 // Excepciones de UN día puntual (clave 'YYYY-MM-DD|typeId'). Expiran solas: pasada la fecha, el día vuelve al plan normal.
 const DAY_EXCEPTIONS = {
+  // 12/9: sesión especial de sábado (episodio lumbar activo) — Skills edición tirón, SIN impacto.
+  // Se abre desde "Entreno libre" con la fecha de hoy. Expira sola.
+  '2026-09-12|free': [
+    { id: 'pull-ups', sets: 4, reps: 'máx−2', rir: 'con intención', ss_group: null, notes: 'Colgarse descomprime la columna · agarre prono · dejá 2 reps en el tanque' },
+    { id: 'face-pull', sets: 3, reps: '12-15', rir: 'RIR 0-1', ss_group: 1, notes: 'SS · hombro posterior (ayer no trabajó) · 15 kg' },
+    { id: 'hammer-curl', sets: 2, reps: '10-12', rir: 'RIR 1', ss_group: 1, notes: 'SS · el pump de bíceps de la auditoría' },
+    { id: 'overhead-ext-rope', sets: 3, reps: '10-12', rir: 'RIR 1', ss_group: null, notes: 'SOLO si no hay agujetas de los fondos de ayer · completa la deuda de tríceps' }
+  ],
   // 9/9: pinchazo lumbar → RDL descansa, hip thrust es el eje (columna apoyada, cero carga axial)
   '2026-09-09|piernas': [
     { id: 'hip-thrust', sets: 3, reps: '8-10', rir: 'RIR 2-3 · calibrar', ss_group: null, notes: 'EXCEPCIÓN DE HOY: eje en vez del RDL (lumbar con pinchazo) · arranque 40-50 · pausa 1seg arriba apretando glúteo · calor: gato-camello + puente sin peso + ATG' },
