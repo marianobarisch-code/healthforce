@@ -481,7 +481,7 @@
   <div class="header"><h1>Ajustes</h1></div>
   <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Conexiones</div>
   <div id="gcal-card"></div>
-  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.09.10</strong></div>
+  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.10.03</strong></div>
 </section>
 
 <nav class="nav" id="bottom-nav">
@@ -3785,9 +3785,35 @@ function setDayPlan(ds, typeIds) { localStorage.setItem(planKey(ds), JSON.string
 // ═══════════════ APP 10x: Progreso · Coach semanal · Regla del día siguiente · Peso ═══════════════
 const QUEUE_EXPENSIVE = new Set(['tiron', 'piernas', 'empuje', 'sprints', 'padel']);
 const KEY_LIFTS = [
-  ['incline-machine-press', 'Máq. inclinada'], ['bench-press', 'Banca'], ['lat-pulldown', 'Jalón'],
-  ['machine-ohp', 'Militar'], ['rdl', 'RDL'], ['bulgarian-split', 'Búlgara'], ['pull-ups', 'Dominadas']
+  ['lat-pulldown', 'Jalón'], ['incline-db', 'Incl. mancuernas'], ['hip-thrust', 'Hip thrust'],
+  ['rdl', 'RDL'], ['pull-ups', 'Dominadas'], ['bulgarian-split', 'Búlgara'],
+  ['bench-press', 'Banca'], ['incline-machine-press', 'Máq. inclinada']
 ];
+
+// ── OBJETIVO (definido por Mariano 2026-10-02): 4 pilares, en SU orden de prioridad ──
+// 1 sin dolor · 2 verse mejor · 3 más atleta · 4 más fuerte
+const EPISODE_SEED = ['2026-09-12']; // último episodio conocido (contractura por face pull)
+function loadEpisodes() { try { return JSON.parse(localStorage.getItem('hf_episodes') || '[]'); } catch (e) { return []; } }
+function logEpisodeToday() {
+  if (!confirm('¿Registrar un episodio de dolor HOY? La racha se resetea (sin drama: medir es ganar).')) return;
+  const a = loadEpisodes();
+  if (!a.includes(todayStr())) a.push(todayStr());
+  localStorage.setItem('hf_episodes', JSON.stringify(a));
+  renderProgress(); toast('Episodio registrado — la racha arranca de nuevo');
+}
+function painStreakDays() {
+  const all = [...EPISODE_SEED, ...loadEpisodes()].sort();
+  const last = all[all.length - 1];
+  return Math.max(0, Math.round((new Date(todayStr() + 'T12:00:00') - new Date(last + 'T12:00:00')) / 86400000));
+}
+function loadWaist() { try { return JSON.parse(localStorage.getItem('hf_waist') || '{}'); } catch (e) { return {}; } }
+function logWaist() {
+  const v = parseFloat((prompt('Cintura al ombligo (cm), relajado:') || '').replace(',', '.'));
+  if (!v || v < 60 || v > 150) { if (v) toast('Valor inválido', true); return; }
+  const m = loadWaist(); m[todayStr()] = v;
+  localStorage.setItem('hf_waist', JSON.stringify(m));
+  renderProgress(); toast('Cintura guardada ✓');
+}
 function liftHistory(exId) {
   return loadWorkouts()
     .filter(w => w.sets && w.sets[exId] && (w.sets[exId] || []).some(s => s.weight !== '' && s.weight != null && s.reps))
@@ -3941,43 +3967,55 @@ function renderProgress() {
   const nsNow = aero.length ? aero[aero.length - 1].v : NS_BASE;
   const nsPct = Math.max(0, Math.min(100, Math.round((nsNow - NS_BASE) / (NS_TARGET - NS_BASE) * 100)));
   const nsDelta = nsNow - NS_BASE;
-  // puertas del pádel
-  const z2max = Math.max(31, ...loadWorkouts().filter(w => w.type_id === 'z2' && w.duration).map(w => +w.duration || 0));
-  const sprintsDone = loadWorkouts().filter(w => w.type_id === 'sprints' && w.date >= '2026-07-27').length;
-  const gate = (name, pct, sub) => `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="font-weight:700">${name}</span><span style="color:var(--text-3)">${sub}</span></div><div style="height:8px;background:var(--surface-2);border-radius:99px"><div style="height:100%;width:${pct}%;background:var(--accent);border-radius:99px"></div></div></div>`;
   const selOpts = withData.map(([id, name]) => `<option value="${id}" ${id === pgExercise ? 'selected' : ''}>${name}</option>`).join('');
   const prTxt = (() => {
-    const p = Math.max(0, ...liftHistory('bench-press').map(h => h.e1rm), ...liftHistory('incline-machine-press').map(h => h.e1rm));
+    const p = Math.max(0, ...liftHistory('bench-press').map(h => h.e1rm), ...liftHistory('incline-machine-press').map(h => h.e1rm), ...liftHistory('incline-db').map(h => h.e1rm));
     const j = Math.max(0, ...liftHistory('lat-pulldown').map(h => h.e1rm));
-    const r = Math.max(0, ...liftHistory('rdl').map(h => h.e1rm));
+    const ht = Math.max(0, ...liftHistory('hip-thrust').map(h => h.e1rm));
     const parts = [];
-    if (p) parts.push(`press ~${Math.round(p)}`); if (j) parts.push(`jalón ~${Math.round(j)}`); if (r) parts.push(`RDL ~${Math.round(r)}`);
+    if (p) parts.push(`press ~${Math.round(p)}`); if (j) parts.push(`jalón ~${Math.round(j)}`); if (ht) parts.push(`hip thrust ~${Math.round(ht)}`);
     return parts.length ? 'PRs (1RM est.): ' + parts.join(' · ') : '';
   })();
+  // ── Los 4 pilares ──
+  const streakW = painStreakDays() / 7;
+  const waistM = loadWaist();
+  const wDates = Object.keys(waistM).sort();
+  const wNow = wDates.length ? waistM[wDates[wDates.length - 1]] : null;
+  const wDelta = wDates.length > 1 ? wNow - waistM[wDates[0]] : null;
+  const jalonE1 = Math.max(0, ...liftHistory('lat-pulldown').map(h => h.e1rm));
+  const monthStart = todayStr().slice(0, 7) + '-01';
+  const padelMonth = loadWorkouts().filter(w => w.type_id === 'padel' && w.date >= monthStart).length;
+  const pillar = (n, emoji, label, big, unit, sub, onclick) => `
+    <div ${onclick ? `onclick="${onclick}"` : ''} style="background:rgba(0,0,0,.28);border:1px solid var(--border);border-radius:14px;padding:12px 12px 10px;${onclick ? 'cursor:pointer' : ''}">
+      <div style="color:var(--text-3);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">${n} · ${emoji} ${label}</div>
+      <div style="display:flex;align-items:baseline;gap:4px"><span style="font-size:26px;font-weight:900;color:var(--accent);line-height:1">${big}</span><span style="color:var(--text-2);font-size:11px;font-weight:700">${unit}</span></div>
+      <div style="color:var(--text-3);font-size:10px;margin-top:4px;line-height:1.35">${sub}</div>
+    </div>`;
   el.innerHTML = `
-    <div style="background:linear-gradient(135deg, var(--surface), #1d2410);border:1px solid var(--accent);border-radius:var(--radius-lg);padding:20px 16px;margin-bottom:16px">
-      <div style="color:var(--text-2);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">⭐ Tu métrica — motor aeróbico</div>
-      <div style="display:flex;align-items:baseline;gap:8px">
-        <span style="font-size:44px;font-weight:900;color:var(--accent);line-height:1">${nsNow.toFixed(1)}</span>
-        <span style="color:var(--text-2);font-size:14px;font-weight:700">km/h @ 140 ppm</span>
+    <div style="background:linear-gradient(135deg, var(--surface), #1d2410);border:1px solid var(--accent);border-radius:var(--radius-lg);padding:18px 14px;margin-bottom:16px">
+      <div style="color:var(--text-2);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px">🎯 Atleta de por vida</div>
+      <div style="color:var(--text-3);font-size:11px;margin-bottom:12px">Sentirte bien · verte mejor · ser más atleta · ser más fuerte — en ese orden.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">
+        ${pillar(1, '🛡️', 'Sin dolor', streakW.toFixed(1).replace('.', ','), 'semanas', `sin episodios · la métrica madre<br>¿hubo uno? tocá acá`, 'logEpisodeToday()')}
+        ${pillar(2, '🪞', 'Verme mejor', wNow ? String(wNow).replace('.', ',') : '—', wNow ? 'cm cintura' : '', wNow ? (wDelta != null ? `${wDelta > 0 ? '+' : ''}${wDelta.toFixed(1).replace('.', ',')} cm desde el inicio · meta −3 a dic` : 'medí de nuevo el domingo') : 'tocá y cargá la primera medición (domingos)', 'logWaist()')}
+        ${pillar(3, '🏃', 'Más atleta', nsNow.toFixed(1).replace('.', ','), 'km/h @140', `meta 9,0 · pádel este mes: ${padelMonth} 🎾`)}
+        ${pillar(4, '🏋️', 'Más fuerte', jalonE1 ? Math.round(jalonE1) : '—', jalonE1 ? 'e1RM jalón' : '', jalonE1 ? 'meta 95 a dic · detalle abajo 👇' : 'se llena con tus sesiones')}
       </div>
-      <div style="color:var(--text-3);font-size:12px;margin:6px 0 10px">${nsDelta > 0.05 ? `+${nsDelta.toFixed(1)} desde la base · ` : ''}Meta: <strong style="color:var(--text)">9,0</strong> = correr 5K cómodo y pádel sobrado. Sube sola con cada Z2 que cargues con ritmo.</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:14px">
+      <div style="font-weight:800;font-size:14px;margin-bottom:6px">🏃 El motor (pilar 3)</div>
+      <div style="color:var(--text-3);font-size:12px;margin-bottom:8px">${nsDelta > 0.05 ? `+${nsDelta.toFixed(1)} desde la base · ` : ''}9,0 = correr 5K cómodo y pádel sobrado. Sube con cada corrida en zona que cargues.</div>
       <div style="height:10px;background:rgba(0,0,0,.35);border-radius:99px"><div style="height:100%;width:${nsPct}%;background:var(--accent);border-radius:99px;min-width:4px"></div></div>
       <div style="display:flex;justify-content:space-between;color:var(--text-3);font-size:11px;margin-top:4px"><span>7,0 (15 ago)</span><span>${nsPct}%</span><span>9,0</span></div>
       ${aero.length > 1 ? '<canvas id="pg-aero" height="120" style="margin-top:12px"></canvas>' : '<div style="color:var(--text-3);font-size:12px;margin-top:10px">La curva aparece con tu próxima corrida cargada 🏃</div>'}
     </div>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:14px">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:20px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-        <span style="font-weight:800;font-size:14px">🏋️ Fuerza</span>
+        <span style="font-weight:800;font-size:14px">🏋️ La fuerza (pilar 4)</span>
         <select onchange="pgExercise=this.value;renderProgress()" style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:6px 8px;font-size:12px">${selOpts}</select>
       </div>
       ${prTxt ? `<div style="color:var(--text-3);font-size:11px;margin-bottom:8px">${prTxt}</div>` : ''}
       ${pgExercise ? '<canvas id="pg-strength" height="150"></canvas>' : '<div style="color:var(--text-3);font-size:13px">Se dibuja con 2+ sesiones por ejercicio 💪</div>'}
-    </div>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:20px">
-      <div style="font-weight:800;font-size:14px;margin-bottom:10px">🎾 Puertas del pádel</div>
-      ${gate('1 · 30\' trote continuo en Z2', Math.min(95, Math.round(z2max / 30 * 95)), `mejor: ${Math.round(z2max)}' — falta confirmar 1 continua`)}
-      ${gate('2 · Pasadas sin molestias del dedo', Math.min(100, sprintsDone * 25), `${sprintsDone}/4 sesiones del programa`)}
     </div>`;
   ['_pg1', '_pg2'].forEach(k => { if (window[k]) { window[k].destroy(); window[k] = null; } });
   const base = { responsive: true, plugins: { legend: { display: false } } };
