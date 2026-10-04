@@ -447,7 +447,7 @@
   <div class="progress-card">
     <div class="progress-header">
       <span class="progress-title">Esta semana</span>
-      <span class="progress-value" id="week-progress-text">0 / 6</span>
+      <span class="progress-value" id="week-progress-text">0 / 5</span>
     </div>
     <div class="progress-bar"><div class="progress-bar-fill" id="week-progress-fill" style="width: 0%"></div></div>
   </div>
@@ -481,7 +481,7 @@
   <div class="header"><h1>Ajustes</h1></div>
   <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Conexiones</div>
   <div id="gcal-card"></div>
-  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.10.03</strong></div>
+  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.10.05</strong></div>
 </section>
 
 <nav class="nav" id="bottom-nav">
@@ -610,18 +610,19 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 const DAY_TEMPLATES = [
-  { type_id: 'tiron', name: 'Back & Shoulders', short: 'Back', desc: 'Espalda + hombros · jalón pesado · SS de calor dominadas+pike', category: 'strength', weekday: 1, muscles: ['Espalda','Hombros','Bíceps'] },
-  { type_id: 'piernas', name: 'Legs', short: 'Legs', desc: 'RDL + hip thrust · funcional, columna protegida', category: 'strength', weekday: 3, muscles: ['Piernas','Glúteos','Core'] },
-  { type_id: 'empuje', name: 'Chest & Triceps', short: 'Chest', desc: 'Inclinado mancuernas pesado + fondos', category: 'strength', weekday: 4, muscles: ['Pecho','Hombros','Tríceps'] },
+  { type_id: 'tiron', name: 'Upper A', short: 'Upper A', desc: 'Pecho sup · dorsal · hombro lateral · tríceps · abs', category: 'strength', weekday: 1, muscles: ['Pecho','Espalda','Hombros','Tríceps'] },
+  { type_id: 'empuje', name: 'Upper B', short: 'Upper B', desc: 'Dominadas · remo · fondos · posterior · bíceps', category: 'strength', weekday: 3, muscles: ['Espalda','Pecho','Hombros','Bíceps'] },
+  { type_id: 'piernas', name: 'Lower', short: 'Lower', desc: 'Función y fuerza · búlgara, RDL, hip thrust · guardianes del sacro', category: 'strength', weekday: 4, muscles: ['Piernas','Glúteos','Core'] },
+  { type_id: 'upper-c', name: 'Upper C', short: 'Upper C', desc: 'Hombros · brazos · abdomen — tu sábado', category: 'strength', weekday: 6, muscles: ['Hombros','Brazos','Core'] },
   { type_id: 'upper-a', name: 'Upper A', short: 'Upper A', desc: 'Empuje / horizontal', category: 'strength', weekday: null, legacy: true, muscles: ['Pecho','Espalda','Hombros','Brazos'] },
   { type_id: 'upper-b', name: 'Upper B', short: 'Upper B', desc: 'Tracción / vertical', category: 'strength', weekday: null, legacy: true, muscles: ['Espalda','Pecho','Hombros','Brazos'] },
   { type_id: 'free', name: 'Entreno libre', short: 'Libre', desc: 'Armá tus ejercicios desde cero', category: 'strength', weekday: null, muscles: [] },
   { type_id: 'day3', name: 'Legs', short: 'Legs', desc: 'Funcional, no hipertrofia', category: 'strength', weekday: null, legacy: true, muscles: ['Piernas','Glúteos','Pantorrillas'] },
   { type_id: 'natacion', name: 'Swimming', short: 'Swimming', desc: 'Recuperación activa', category: 'cardio_steady', weekday: null, muscles: ['Cardio'] },
   { type_id: 'padel', name: 'Pádel', short: 'Pádel', desc: 'Intermitente alta intensidad', category: 'sport', weekday: null, muscles: ['Cardio'] },
-  { type_id: 'z2', name: 'Engine', short: 'Engine', desc: 'El motor (north star) · caminata inclinada o corrida en zona', category: 'cardio_steady', weekday: 2, muscles: ['Cardio'] },
-  { type_id: 'sprints', name: 'Skills & Speed', short: 'Skills', desc: 'Bonus: dominadas+pike, banca técnica, pump y pasadas', category: 'cardio_intervals', weekday: 5, muscles: ['Cardio'] },
-  { type_id: 'mobility', name: 'Mobility', short: 'Mobility', desc: 'Caminata larga + movilidad (+ ATG/Cossack de práctica)', category: 'mobility', weekday: 6, muscles: [] },
+  { type_id: 'z2', name: 'Motor', short: 'Motor', desc: 'En zona 132-144 · caminata inclinada 8% o trote suave · alimenta el north star', category: 'cardio_steady', weekday: 2, muscles: ['Cardio'] },
+  { type_id: 'sprints', name: 'Pasadas HIIT', short: 'Pasadas', desc: 'Fase 2 · vuelve al menú del martes con el timer', category: 'cardio_intervals', weekday: null, muscles: ['Cardio'] },
+  { type_id: 'mobility', name: 'Mobility', short: 'Mobility', desc: 'Bonus flotante · caminata + movilidad', category: 'mobility', weekday: null, muscles: [] },
   { type_id: 'rest', name: 'Full Rest', short: 'Rest', desc: 'Descanso completo', category: 'rest', weekday: 7, muscles: [] },
   { type_id: 'day1', name: 'Chest, Shoulder, Biceps', short: 'Chest, Shoulder, Biceps', desc: 'Empuje vertical + horizontal alto', category: 'strength', weekday: null, legacy: true, muscles: ['Pecho','Hombros','Bíceps'] },
   { type_id: 'day2', name: 'Back, Shoulder, Triceps', short: 'Back, Shoulder, Triceps', desc: 'Tracción + extensión codo', category: 'strength', weekday: null, legacy: true, muscles: ['Espalda','Hombros','Tríceps'] },
@@ -670,6 +671,11 @@ const EXERCISES_BASE = [
   { id: 'squat', name: 'Back squat', primary: 'Piernas', secondary: ['Glúteos','Core'] },
   { id: 'hip-thrust', name: 'Hip thrust', primary: 'Glúteos', secondary: ['Piernas'] },
   { id: 'leg-press', name: 'Prensa', primary: 'Piernas', secondary: ['Glúteos'] },
+  { id: 'chest-supported-high-row', name: 'Remo alto pecho apoyado', primary: 'Espalda', secondary: ['Hombros'] },
+  { id: 'cable-fly-low-high', name: 'Cruce polea bajo→alto', primary: 'Pecho', secondary: ['Hombros'] },
+  { id: 'overhead-ext-cable-uni', name: 'Overhead polea unilateral', primary: 'Tríceps', secondary: [] },
+  { id: 'ab-crunch-machine', name: 'Crunch en máquina', primary: 'Core', secondary: [] },
+  { id: 'goblet-squat', name: 'Goblet squat', primary: 'Piernas', secondary: ['Glúteos', 'Core'] },
   { id: 'bulgarian-split', name: 'Sentadilla búlgara', primary: 'Piernas', secondary: ['Glúteos'] },
   { id: 'leg-curl', name: 'Curl femoral', primary: 'Piernas', secondary: [] },
   { id: 'rdl', name: 'Peso muerto rumano', primary: 'Piernas', secondary: ['Espalda','Glúteos'] },
@@ -698,35 +704,72 @@ const EXERCISES_BASE = [
 
 const DAY_EXERCISES = {
   free: [],
-  tiron: [
-    { id: 'pull-ups', sets: 3, reps: '4-5', rir: 'RPE ≤2 · SUAVE', ss_group: 9, notes: 'CALOR SS · con pike · técnica y estabilidad, NUNCA cerca del fallo — el jalón pesado viene después' },
-    { id: 'pike-pushup', sets: 3, reps: '5-6', rir: 'RPE ≤2 · SUAVE', ss_group: 9, notes: 'CALOR SS · con dominadas · cola arriba, cabeza al piso' },
-    { id: 'lat-pulldown', sets: 4, reps: '4-6', rir: 'RIR 1-2', ss_group: null, notes: 'FUERZA · tirón pesado · descanso 2-3 min' },
-    { id: 'db-ohp', sets: 3, reps: '8-10', rir: 'RIR 2 · liviano 2 semanas', ss_group: null, notes: 'SENTADO · agarre neutro · arranque 20-22/mano · la máquina se retiró (dolía cuello, ambos lados) · hombros lejos de las orejas' },
-    { id: 'user-remo-incl-polea-1788781429587', sets: 3, reps: '8-10', rir: 'RIR 1', ss_group: null, notes: 'Horizontal · pecho apoyado = cero lumbar/sacro · agarre neutro · titular desde 7/9 (reemplazó al Technogym)' },
-    { id: 'face-pull', sets: 3, reps: '12-15', rir: 'RIR 0-1', ss_group: 1, notes: 'SS1 · hombro posterior' },
-    { id: 'incline-db-curl', sets: 3, reps: '10-12', rir: 'RIR 0-1', ss_group: 1, notes: 'SS1 · bíceps' },
-    { id: 'dead-bug', sets: 3, reps: '10', rir: '', ss_group: 2, notes: 'Core A' },
-    { id: 'pallof-press', sets: 3, reps: '10 por lado', rir: '', ss_group: 2, notes: 'Core A' }
+  // ═══ Rediseño oct-2026 (Fase 1: técnica y conexión). Cada ejercicio lleva su porqué (campo why). ═══
+  tiron: [ // UPPER A — lunes
+    { id: 'incline-db', sets: 3, reps: '8-12', rir: 'RIR 2-3', rest: "3'", aprox: 2, ss_group: null, notes: 'Pecho sup · 30° · bajada 3", pausa 1" abajo · 24/mano',
+      why: 'MÚSCULOS: pecho superior (clavicular); deltoide anterior y tríceps secundarios. POR QUÉ ESTE: tu prioridad estética es el pecho superior y las mancuernas dan un rango más largo que la barra — la hipertrofia es mayor cuando el músculo trabaja estirado. 30° y no 45°: a 45° el deltoide anterior roba. Mancuernas y no máquina en Fase 1: exigen estabilizadores = conexión. POR QUÉ PRIMERO: el compuesto más demandante del día, cuando estás 100% fresco. El militar no aparece este día (presses nunca seguidos). PROGRESIÓN: +2 kg/mano cuando las 3 series lleguen a 12 con RIR 2. ALTERNATIVAS: press inclinado máquina Technogym · inclinado con barra solo con spotter/Smith.' },
+    { id: 'lat-pulldown', sets: 3, reps: '8-12', rir: 'RIR 2', rest: "2,5'", aprox: 1, ss_group: null, notes: 'Dorsal · prono medio · pausa 1" en el pecho alto, subida 3" · 55-60',
+      why: 'MÚSCULOS: dorsal ancho; espalda media y bíceps secundarios. POR QUÉ ESTE: vertical + horizontal por día (idea tuya, mejor que la original): dorsal 2×/semana con carga ajustable — las dominadas van el miércoles. Prono MEDIO, no ancho: el ancho acorta el rango y carga el hombro. POR QUÉ SEGUNDO: el tirón antagonista del press — se alternan y ninguno interfiere al otro (series agonista-antagonista, Robbins 2010). CUES: escápulas abajo antes de tirar, torso 10-15° atrás, codos a las costillas, la subida lenta es la mitad del estímulo. ALTERNATIVAS: jalón neutro en V · jalón unilateral en polea.' },
+    { id: 'lateral-raise-cable', sets: 3, reps: '12-15 por lado', rir: 'RIR 1-2', rest: "1,5'", aprox: 0, ss_group: null, notes: 'Lateral · polea baja, cable POR DETRÁS del cuerpo · hasta la horizontal · 5-7,5',
+      why: 'MÚSCULOS: deltoide lateral. Trapecio superior = lo que queremos EXCLUIR. POR QUÉ ESTE: prioridad #1 (la silueta). La polea da tensión constante desde el primer grado — la mancuerna no tiene tensión en los primeros 30° (el brazo cuelga). Cable por detrás del cuerpo: línea de tiro que deja al anterior y al trapecio afuera. Unilateral con la mano libre en la torre: el torso no se balancea. POR QUÉ TERCERO: es prioridad — no se queda para cuando se acaba el tiempo. CUES: subir "lejos" no "alto", hombro abajo todo el recorrido, bajada 2". ALTERNATIVAS: vuelo lateral con mancuernas SENTADO · máquina de vuelo lateral (probar que no moleste el trapecio).' },
+    { id: 'pec-deck', sets: 2, reps: '12-15', rir: 'RIR 2', rest: "1,5' entre rondas", aprox: 0, ss_group: 1, notes: 'SS1 · abrir 2" hasta el estiramiento, pausa 1", cerrar sin golpear · 12,5-15',
+      why: 'MÚSCULOS: pecho medio (esternal). POR QUÉ ESTE: cubre la segunda porción del pecho con un aislamiento EN ESTIRAMIENTO (rango largo > corto). Vs fondos: los fondos son carga pesada a peso corporal; en Fase 1 priorizo el gesto que podés hacer a 12-15 con control (los fondos van el miércoles). POR QUÉ ACÁ: remate con el pecho pre-fatigado, en superserie con tríceps (no compiten). Si el reloj aprieta, es lo único del día recortable a 1 serie. ALTERNATIVAS: cruce en polea alta · aperturas con mancuernas en banco plano.' },
+    { id: 'overhead-ext-rope', sets: 2, reps: '12-15', rir: 'RIR 2', rest: "1,5' entre rondas", aprox: 0, ss_group: 1, notes: 'SS1 · de espaldas a la polea · estirar abajo hasta sentir el tríceps en el hombro · 15-17,5',
+      why: 'MÚSCULOS: tríceps cabeza larga (2/3 del tríceps; la única que cruza el hombro y solo trabaja completa con el brazo arriba). POR QUÉ ESTE: Maeo 2022 — el overhead produce ~1,5× más hipertrofia de tríceps que el pushdown, en las tres cabezas. Soga en polea de espaldas: tensión abajo del todo y cabeza neutra (sin barra detrás de la nuca). POR QUÉ ACÁ: cierra la superserie con un músculo que el pec deck no toca; después del press para no gastar tríceps antes del compuesto. CUES: codos cerrados apuntando adelante, extender sin "abrir" los codos, tronco quieto. ALTERNATIVAS: overhead con mancuerna a dos manos sentado · overhead en polea unilateral.' },
+    { id: 'ab-crunch-machine', sets: 2, reps: '12-15', rir: 'RIR 1-2', rest: "1'", aprox: 0, ss_group: null, notes: 'Abdomen · exhalar al cerrar, pausa 1", bajada 2" sin que toque el stack',
+      why: 'MÚSCULOS: recto abdominal; oblicuos secundarios. POR QUÉ ESTE: el recto abdominal crece con FLEXIÓN CARGADA en rango completo, no con isometrías (planchas = estabilidad, no hipertrofia). Máquina vs crunch en polea: fija la pelvis y guía la curvatura — con tu sacro prefiero flexión torácica controlada; ya la usaste el 28/9 sin reacción. POR QUÉ ÚLTIMO: el core fatigado sostiene peor los compuestos; al cierre no roba nada. PROGRESIÓN: 15 limpias → +1 placa. ALTERNATIVAS: crunch en polea alta de rodillas · elevación de piernas colgado con retroversión.' }
   ],
-  empuje: [
-    { id: 'incline-db', sets: 4, reps: '6-8', rir: 'RIR 1-2', ss_group: null, notes: 'FUERZA · titular desde 10/9 (elección de Mariano) · 6-8 y no 4-6: el riesgo real era subir mancuernas enormes a posición · calibrar ~26-28/mano · descanso 2-3 min' },
-    { id: 'dips-chest', sets: 3, reps: '6-10', rir: 'RIR 1', ss_group: null, notes: 'Fondos: cubre plano + segundo tríceps · peso corporal · lastrar cuando salgan 10 fáciles' },
-    { id: 'pec-deck', sets: 3, reps: '10-12', rir: 'RIR 1', ss_group: 1, notes: 'SS1 · apertura' },
-    { id: 'lateral-raise-db', sets: 3, reps: '12-15', rir: 'RIR 0-1', ss_group: 1, notes: 'SS1 · deltoide lateral · 10-12 kg (el hombro pesado ahora es el lunes)' },
-    { id: 'overhead-ext-rope', sets: 3, reps: '10-12', rir: 'RIR 1', ss_group: null, notes: 'Tríceps' },
-    { id: 'suitcase-carry', sets: 3, reps: '30 m por lado', rir: '', ss_group: 2, notes: 'Core B · 24-28 kg' },
-    { id: 'side-plank', sets: 3, reps: '30 seg/lado', rir: '', ss_group: 2, notes: 'Core B' }
+  empuje: [ // UPPER B — miércoles
+    { id: 'pull-ups', sets: 3, reps: '5-8', rir: 'RIR 2', rest: "3'", aprox: 1, ss_group: null, notes: 'Dorsal · agarre NEUTRO o supino · cuello neutro · la serie termina si la rep se degrada',
+      why: 'MÚSCULOS: dorsal ancho; bíceps/braquial, espalda media y posterior secundarios. POR QUÉ ESTE: tu favorito y el mejor dorsal para 1,96 m (palancas largas = rango enorme). Neutro/supino en Fase 1: hombro en posición segura, menos tentación del trapecio/cuello, más braquial (que te falta); el prono ancho vuelve en Etapa 2 con el cuello avalado. POR QUÉ PRIMERO: el más difícil y técnico del día — fresco o no se hace bien. CUES: escápulas abajo antes de tirar, sin kipping, mirada al frente (NO al cielo). PROGRESIÓN: 3×8 limpias → primer lastre 2,5 kg. ALTERNATIVAS: supinas · jalón neutro cerrado si un día no llegás a 5.' },
+    { id: 'technogym-row', sets: 3, reps: '10-12', rir: 'RIR 2', rest: "2,5'", aprox: 1, ss_group: null, notes: 'Espalda media · pecho apoyado · pausa 1" atrás, hombros LEJOS de las orejas · 20',
+      why: 'MÚSCULOS: espalda media (romboides, trapecio medio) + dorsal; bíceps y posterior secundarios. POR QUÉ ESTE: la tracción horizontal que acompaña a todo empuje horizontal — el contrapeso del ratio empuje/tracción que tu rectificación cervical necesita. PECHO APOYADO = cero sacro y lumbar (vs remo con barra/mancuerna). Technogym (resistencia constante) o tu polea inclinada: elegí la que te deje sentir más los omóplatos. POR QUÉ SEGUNDO: tirón horizontal fresco, antes de que el trapecio compense. Si el cuello se tensa, el peso está alto. ALTERNATIVAS: tu remo inclinado en polea · remo en máquina con agarre neutro · remo en polea baja sentado (última: carga lumbar).' },
+    { id: 'dips-chest', sets: 2, reps: '6-10', rir: 'RIR 2', rest: "2,5'", aprox: 1, ss_group: null, notes: 'Pecho medio-inf · torso inclinado 20-30° · bajar solo hasta hombro = codo · asistidos si no hay 2×6',
+      why: 'MÚSCULOS: pecho medio-inferior; tríceps lateral/medial y deltoide anterior secundarios. POR QUÉ ESTE: completa el pecho medio-inferior y los tríceps laterales con un solo ejercicio; estiramiento profundo del pecho (más que cualquier press); peso corporal = cero spotter, cero carga axial. Único empuje del día: el ratio de la semana queda del lado de la tracción. POR QUÉ TERCERO: entre dos bloques de tracción (el patrón antagonista descansa) y antes de los aislamientos, fresco — es el de más riesgo técnico. CUES: codos ~45°, no bajar más allá de donde controlás, subir apretando el pecho. ALTERNATIVAS: fondos en máquina asistida (titular temporal) · press plano en máquina.' },
+    { id: 'rear-delt-fly', sets: 3, reps: '12-20', rir: 'RIR 1-2', rest: "1,5' entre rondas", aprox: 0, ss_group: 1, notes: 'SS1 · pájaro en máquina, pecho apoyado · "codos atrás", pausa 1" · STOP si el cuello toma el mando',
+      why: 'MÚSCULOS: deltoide posterior; romboides/trapecio medio secundarios. POR QUÉ ESTE: era tu déficit crítico (~1 serie/semana) y es prioridad doble: estética (el hombro "3D") y postural (contrapeso de la rectificación cervical). Máquina con pecho apoyado vs face pull: el face pull te lesionó por el trapecio superior compensando en superserie; con el pecho en el respaldo el torso no ayuda y el movimiento es puro plano horizontal — la versión más segura de este músculo para tu cuello. POR QUÉ ACÁ: en superserie con un gesto de pecho que no compite; va antes del bíceps porque es prioridad. CUES: brazos apenas flexionados, codos a la altura del hombro, el peso más liviano que te haga sentir el posterior y no la espalda. ALTERNATIVAS: pájaro en polea cruzada de pie · pájaro con mancuernas apoyado de pecho en banco inclinado (nunca de pie en bisagra en Fase 1).' },
+    { id: 'cable-fly-low-high', sets: 2, reps: '12-15 por lado', rir: 'RIR 2', rest: "1,5' entre rondas", aprox: 0, ss_group: 1, notes: 'SS1 · polea BAJA, unilateral, mano libre en la torre · subir en diagonal hasta la cara, apretar 1" · 5-7,5',
+      why: 'MÚSCULOS: pecho superior (clavicular). POR QUÉ ESTE: el pecho superior quedó en 3/5 tras el lunes y la única otra forma de completarlo sería un segundo press — que chocaría con el militar del sábado (tu regla). Aislamiento liviano, cero fatiga sistémica. De abajo hacia arriba: las fibras claviculares corren en diagonal descendente; llevar las manos de abajo-afuera hacia arriba-adentro las acorta. Unilateral por disponibilidad y conexión; la doble polea es la alternativa, no al revés. POR QUÉ ACÁ: en superserie con el pájaro — empuje y tirón horizontal de aislamiento, par perfecto. ALTERNATIVAS: cruce doble polea (bajo→alto) · pec deck repetido (entonces inclinado del lunes a 4 series) · aperturas inclinadas con mancuernas.' },
+    { id: 'incline-db-curl', sets: 3, reps: '8-12', rir: 'RIR 2', rest: "1,5'", aprox: 0, ss_group: null, notes: 'Bíceps · banco 45-60°, brazos colgando ATRÁS del torso · bajar 3" a extensión completa · 8-10/mano',
+      why: 'MÚSCULOS: bíceps (cabeza larga en estiramiento); braquial secundario. POR QUÉ ESTE: tu favorito y el curl mejor respaldado — el curl en posición ESTIRADA produce más crecimiento que en acortamiento (Pedrosa 2022, Maeo 2023). Sentado y apoyado vs barra de pie: sin balanceo, sin lumbar. Con dominadas + remo ya hay ~3 series indirectas; 3 directas acá cierran el objetivo semanal. POR QUÉ ÚLTIMO: el bíceps es sinergista de todos los tirones del día — gastarlo antes empeora dominadas y remo. ALTERNATIVAS: curl en polea baja de espaldas a la torre · curl alternado de pie.' }
   ],
-  piernas: [
-    { id: 'rdl', sets: 3, reps: '8-10', rir: 'RIR 2-3', ss_group: null, notes: 'EL EJE · bilateral · 40 esta semana (post-pinchazo), 45 cuando la regla del día siguiente apruebe · (calor a ojo: gato-camello + puente + ATG)' },
-    { id: 'hip-thrust', sets: 3, reps: '8-10', rir: 'RIR 1-2', ss_group: null, notes: 'TITULAR desde 9/9 (debut 80×10@3) · pausa 1" arriba apretando glúteo · columna apoyada en el banco' },
-    { id: 'bulgarian-split', sets: 2, reps: '8 por pierna', rir: 'RIR 1-2', ss_group: null, notes: 'Torso RECTO (bias cuádriceps) · 14 kg · ⇄ ALTERNAR POR SEMANA con la prensa (semana A búlgara, semana B prensa)' },
-    { id: 'hip-flexor-cable', sets: 2, reps: '10-12 por lado', rir: 'liviano y controlado', ss_group: 1, notes: 'SS1 · psoas (zancada/sprint) + estabilidad de apoyo · tobillera en polea baja' },
-    { id: 'user-m-quina-adductor-1786553665627', sets: 3, reps: '8-12', rir: 'RIR 1-2', ss_group: 1, notes: 'SS1 · aductores (reemplazó al Cossack — el Cossack queda de movilidad en el calor)' },
-    { id: 'calf-raise', sets: 2, reps: '8-10', rir: 'pesado y LENTO', ss_group: 2, notes: 'SS2 · HSR de pie: bajada 3", pausa abajo en estiramiento completo, subida controlada — construye el tendón de Aquiles · el dedo tiene veto' },
-    { id: 'tibialis-raise', sets: 2, reps: '15-25', rir: '', ss_group: 2, notes: 'SS2 cierre · tobillo' },
-    { id: 'hyperextension', sets: 2, reps: '60-90 seg', rir: 'isométrica', ss_group: 2, notes: 'SS2 cierre · erectores — te ALIVIA el sacro (comprobado 4/9)' }
+  piernas: [ // LOWER — jueves (tope: 8 compuestas + accesorios en SS + cierre iso)
+    { id: 'bulgarian-split', sets: 2, reps: '8-10 por pierna', rir: 'RIR 2', rest: "2,5'", aprox: 1, ss_group: null, notes: 'Torso RECTO (bias cuádriceps) · ⇄ ATG split squat alternando semanas · 10-12/mano',
+      why: 'MÚSCULOS: cuádriceps; glúteo secundario; estabilidad de cadera. POR QUÉ ESTE: tu decisión, correcta: unilateral para corregir desbalances, torso recto para sesgar cuádriceps y no sobrecargar glúteo. La sentadilla con barra queda afuera hasta sentirte balanceado (candidata Etapa 2). Alternar con el ATG split squat (pie trasero en el piso, rodilla muy adelante, talón apoyado): el ATG carga el cuádriceps y la rodilla en rango largo — tu cuád es el músculo peor servido del programa. POR QUÉ PRIMERO: el ejercicio más técnico y de más equilibrio del día va fresco (el ejercicio que va antes rinde más — Simão 2012). CUES: pie delantero bien adelante, rodilla sin dolor manda la profundidad, bajada 3". ALTERNATIVAS: ATG split squat · prensa.' },
+    { id: 'rdl', sets: 2, reps: '8-10', rir: 'RIR 3', rest: "3'", aprox: 1, ss_group: null, notes: 'RDL con MANCUERNAS · técnica, no carga · la cadera va atrás · bajar hasta el isquio tirante · 12-14/mano · progresa solo con la regla del día siguiente',
+      why: 'MÚSCULOS: isquiotibiales en estiramiento; glúteo secundario; erectores en isométrico. POR QUÉ ESTE: la única bisagra de cadera cargada del programa — la habilidad que protege la espalda en la vida real. El isquio crece más trabajado estirado (RDL) que acortado (curl). Mancuernas en Fase 1: a los costados del cuerpo acortan la palanca sobre la lumbar (la barra tiene que rodear rodillas y tibias en piernas de 1,96), agarre neutro = menos trapecio. Tu resonancia lumbar está limpia y el pinchazo nunca ocurrió DURANTE un RDL: no hay motivo médico para excluirlo, sí para dosificarlo (2 series, RIR 3). POR QUÉ SEGUNDO: la bisagra con el tronco fresco — después de dos gestos de glúteo, el erector toma el relevo. ALTERNATIVAS: RDL con barra (Etapa 2) · curl femoral acostado si el sacro está cargado.' },
+    { id: 'hip-thrust', sets: 2, reps: '8-10', rir: 'RIR 2', rest: "3'", aprox: 2, ss_group: null, notes: 'Glúteo · 70 (dato fresco: 80×10 el 9/9) · pausa 2" arriba · mentón al pecho, cuello neutro · costillas abajo',
+      why: 'MÚSCULOS: glúteo mayor; isquios secundarios. POR QUÉ ESTE: el ejercicio de glúteo con mejor relación estímulo/fatiga para tu columna — espalda alta apoyada, carga por la cadera, tensión máxima con la cadera extendida. La cadena posterior fuerte es el guardián del sacro (glúteo débil → erectores compensan → tu síntoma). Máquina Technogym si existe (menos armado, más seguro para el cuello). 2 series y no 3: tres gestos de glúteo seguidos son lo que te "anula" — 2 series de calidad a 70 con pausa valen lo que 3 a 60. POR QUÉ TERCERO: baja demanda técnica y columna apoyada = tolera la fatiga sin degradarse. ALTERNATIVAS: hip thrust en máquina · puente de glúteo con barra en el piso.' },
+    { id: 'leg-press', sets: 2, reps: '10-12', rir: 'RIR 2-3', rest: "2,5'", aprox: 1, ss_group: null, notes: 'Cuádriceps · columna apoyada · sin despegar el sacro del respaldo abajo · calibrar',
+      why: 'MÚSCULOS: cuádriceps; glúteo secundario. POR QUÉ ESTE: completa las 4 series de cuádriceps que la búlgara no alcanza, con la espalda en el respaldo (cero carga axial, cero lumbar). POR QUÉ CUARTO: el ejercicio del día con menos demanda técnica y más tolerancia a la fatiga; primero solo tendría sentido si el objetivo fuera carga máxima — y vos definiste función. Costo: 1-2 reps por serie, irrelevante en Fase 1. ALTERNATIVAS: hack squat · búlgara (si la prensa está ocupada, 3 series).' },
+    { id: 'leg-curl', sets: 2, reps: '10-12', rir: 'RIR 2', rest: "1,5' entre rondas", aprox: 0, ss_group: 1, notes: 'SS1 · curl femoral ACOSTADO (no hay sentado) · cadera pegada al banco · retorno 3"',
+      why: 'MÚSCULOS: isquiotibiales en acortamiento. POR QUÉ ESTE: el RDL cargó el isquio estirado; esto lo carga acortado y es el ÚNICO gesto de flexión de rodilla del programa — el que protege al esprintar y en los frenos del pádel (la lesión #1 del isquio ocurre en la rodilla). Dato honesto: el curl SENTADO da algo más de hipertrofia (Maeo 2021), pero tu gym solo tiene acostado y cumple el rol. Columna apoyada, cero sacro. CUE: tobillos en flexión dorsal (dedos hacia vos) para sacar al gemelo. ALTERNATIVAS: curl femoral sentado si aparece · Nordic curl asistido (Etapa 2).' },
+    { id: 'copenhagen-plank', sets: 2, reps: '20-30 seg por lado', rir: 'isométrico', rest: "1,5' entre rondas", aprox: 0, ss_group: 1, notes: 'SS1 · Copenhagen con RODILLA apoyada hasta dominarla · ⇄ máquina de aductores según energía',
+      why: 'MÚSCULOS: aductores; oblicuos y glúteo medio del lado de abajo. POR QUÉ ESTE: el programa Copenhagen redujo las lesiones de ingle un 41% en deportistas de campo (Harøy 2019, BJSM) — la intervención preventiva con mejor evidencia para aductores, y el pádel es cambios de dirección y frenadas laterales. Entrena el aductor MIENTRAS la cadera estabiliza, como en una frenada. Contras: todo o nada, cansa; por eso la máquina de aductores es el shuffle legítimo en días de poca energía (no es trampa, es adherencia). Cadera arriba y en línea o pierde sentido. ALTERNATIVAS: máquina de aductores 2×12-15 · plancha lateral con abducción.' },
+    { id: 'calf-raise', sets: 2, reps: '8-10', rir: 'RIR 2 · pesado y LENTO', rest: "1' entre rondas", aprox: 0, ss_group: 2, notes: 'SS2 · gemelo en la PRENSA (talones fuera): bajada 3", pausa 1" en estiramiento, subida 2" · el dedo tiene veto',
+      why: 'MÚSCULOS: gastrocnemio (rodilla extendida) + tendón de Aquiles; sóleo secundario. POR QUÉ ESTE: no es un ejercicio estético — es un ejercicio de TENDÓN. El protocolo HSR (heavy slow resistance, Kongsgaard/Beyer 2015) tiene evidencia equivalente al excéntrico de Alfredson para salud tendinosa con mejor adherencia: carga alta, lento, rango completo. Seguro barato para volver a esprintar y jugar con 96 kg. En la PRENSA y no en Smith/hack: cero hombreras = cero trapecio/cuello (no hay máquina de gemelos exclusiva en tu gym). CUES: metatarsos en el borde, rodillas extendidas sin bloquear, empujar con el dedo gordo, nada de rebote abajo. ALTERNATIVAS: hack squat en el borde de la plataforma · Smith con escalón (última cargada) · unilateral con mancuerna.' },
+    { id: 'hyperextension', sets: 2, reps: '45-60 seg', rir: 'isométrica', rest: "1' entre rondas", aprox: 0, ss_group: 2, notes: 'SS2 cierre · cuerpo en línea recta (no hiperextendido), glúteos apretados, cuello neutro · sin carga',
+      why: 'MÚSCULOS: erectores espinales; glúteo e isquios en isométrico. POR QUÉ ESTE: es TU ejercicio — comprobado en vos (4/9 y 28/9) que alivia el sacro al día siguiente. Coherente con la hipótesis de sacro por compensación: erectores y glúteos con capacidad isométrica = menos demanda sobre la articulación; las isometrías largas tienen buena evidencia analgésica (Rio 2015 en tendón; consenso en lumbar). Cero movimiento bajo carga = cero riesgo al final de un día de piernas. PROGRESIÓN: 60" fáciles 2 semanas → 3×60"; no agregar peso en Fase 1. ALTERNATIVAS: bird-dog 2×10/lado lento · hip thrust isométrico arriba 2×30".' }
+  ],
+  'upper-c': [ // UPPER C — sábado (hombros · brazos · abdomen)
+    { id: 'db-ohp', sets: 3, reps: '8-12', rir: 'RIR 3', rest: "3'", aprox: 2, ss_group: null, notes: 'CONDICIONADO · SENTADO con respaldo, agarre NEUTRO · 14-16/mano · hombros lejos de las orejas · STOP ante cualquier aviso de cuello · mostrárselo al médico',
+      why: 'MÚSCULOS: deltoide anterior; lateral y tríceps secundarios; trapecio superior = minimizar. POR QUÉ ESTE: el único press vertical del programa y tu pedido explícito; cubre las 3 series de anterior y es el gesto que hace al hombro redondo de frente. Sentado con respaldo (sin lumbar), agarre neutro (plano escapular, menos trapecio), mancuernas (cada brazo encuentra su trayectoria — lo que la máquina no te dejaba: 3 episodios). Es tu único press del sábado: la regla "presses nunca seguidos" se cumple por diseño. CONDICIÓN: sin alta médica, entra a ≤50% de tu carga vieja, con stop inmediato ante señal de cuello, y se lleva a la consulta — si el médico lo veta, se va sin discusión. POR QUÉ PRIMERO: compuesto bajo observación, con el cuello fresco y toda tu atención. CUES: respaldo 80-85°, costillas abajo, mancuernas suben en leve diagonal hacia adentro, no bloquear, bajar 3" hasta codos a 90°. ALTERNATIVAS: press militar en polea baja unilateral sentado · elevación frontal en polea (si el overhead queda vetado).' },
+    { id: 'chest-supported-high-row', sets: 2, reps: '12-15', rir: 'RIR 2', rest: "2,5'", aprox: 1, ss_group: null, notes: 'Remo ALTO pecho apoyado: manijas anchas, palmas abajo (prono), codos a la altura del hombro "hacia atrás y afuera" · 15-17,5',
+      why: 'MÚSCULOS: espalda media (romboides, trapecio medio); posterior y dorsal secundarios. POR QUÉ ESTE: cierra las 2 series de espalda media y 1 de posterior que faltaban, y es el antagonista directo del militar: después de 3 series empujando arriba, 2 series tirando atrás con pecho apoyado reequilibran hombro y cuello. Es la misma máquina del remo del miércoles con las manijas anchas: codos abiertos a 90° del torso → romboides + posterior (el del miércoles, codos pegados → dorsal). Pecho apoyado = el reemplazo seguro del face pull que te lesionó: mismo músculo objetivo, sin el vector que te contracturó. CUES: tirar los codos (no las manos), pausa 1" juntando omóplatos, hombros abajo, cuello neutro; si los hombros suben en la última rep, el peso está alto. ALTERNATIVAS: pájaro en máquina 2×15 · remo en polea alta sentado con barra ancha (torso quieto) · tu banco inclinado frente a la polea con barra ancha.' },
+    { id: 'lateral-raise-db', sets: 3, reps: '12-15', rir: 'RIR 1-2', rest: "1,5'", aprox: 0, ss_group: null, notes: 'Lateral · SENTADO con respaldo · hasta la horizontal · hombros abajo · 8/mano',
+      why: 'MÚSCULOS: deltoide lateral. POR QUÉ ESTE: cierra las 5 series semanales de lateral y la frecuencia 2×. Mancuernas hoy, polea el lunes — a propósito: perfiles de resistencia opuestos (la polea carga el inicio/estiramiento, la mancuerna carga el final/acortamiento). Sentado con respaldo: elimina el impulso de cadera y rodilla y le quita al trapecio la excusa de encogerse. POR QUÉ TERCERO: el hombro ya hizo su compuesto y su tirón; el aislamiento llega con el deltoide caliente y el trapecio cansado de estabilizar. CUES: leve inclinación (meñique apenas más alto), bajada 2", si los hombros suben bajá el peso. ALTERNATIVAS: máquina de vuelo lateral · vuelo lateral en polea unilateral (repetirlo no es un problema).' },
+    { id: 'rear-delt-fly', sets: 2, reps: '15', rir: 'RIR 1-2', rest: "1,5'", aprox: 0, ss_group: null, notes: 'Pájaro en máquina · posterior a 6/semana (prioridad estética) · liviano',
+      why: 'MÚSCULOS: deltoide posterior. POR QUÉ ESTE: agregado por decisión tuya (opción b): el sábado era el día más corto y el posterior es prioridad estética + contrapeso postural del cuello. Pecho apoyado, el músculo más seguro de trabajar para vos. ALTERNATIVAS: pájaro en polea cruzada · remo alto (ya hecho hoy — no duplicar).' },
+    { id: 'overhead-ext-cable-uni', sets: 2, reps: '10-15 por lado', rir: 'RIR 2', rest: "1,5' entre rondas", aprox: 0, ss_group: 1, notes: 'SS1 · overhead en polea UNILATERAL · la mano libre fija el codo · estirar abajo hasta sentir el tríceps en el hombro',
+      why: 'MÚSCULOS: tríceps (las tres cabezas, énfasis larga). POR QUÉ ESTE y no pushdown: Maeo 2022 — overhead ~1,5× más hipertrofia que el pushdown, también en lateral y medial. Unilateral el sábado por variedad real: corrige asimetrías y te deja fijar el codo con la otra mano = conexión. El pushdown queda en shuffle para codo molesto o polea ocupada. POR QUÉ ACÁ: aislamiento de empuje en superserie con un aislamiento de tirón (martillo) — par agonista-antagonista de brazo. ALTERNATIVAS: pushdown barra/V · dip machine.' },
+    { id: 'hammer-curl', sets: 2, reps: '10-12', rir: 'RIR 2', rest: "1,5' entre rondas", aprox: 0, ss_group: 1, notes: 'SS1 · martillo · codos fijos, pausa 1" arriba, bajar 3" · sin impulso · 10-12/mano',
+      why: 'MÚSCULOS: braquial anterior y braquiorradial; bíceps secundario. POR QUÉ ESTE: la única serie directa de braquial del programa — está debajo del bíceps y cuando crece lo empuja hacia arriba: grosor del brazo visto de costado. Agarre neutro: el bíceps pierde ventaja mecánica (no puede supinar) y el braquial toma el relevo. Vs repetir el curl inclinado: ya hiciste 3 series el miércoles en estiramiento; esto cubre lo que falta. POR QUÉ ACÁ: aislamiento de tirón después del de empuje; último de fuerza antes del abdomen. ALTERNATIVAS: martillo en polea con soga · martillo cruzado.' },
+    { id: 'tricep-pushdown', sets: 2, reps: '12-15', rir: 'RIR 2', rest: "1,5'", aprox: 0, ss_group: null, notes: 'Pushdown barra V/recta · codos pegados y fijos · extender 1", subir 2" solo hasta 90° · separado del overhead (mismo músculo)',
+      why: 'MÚSCULOS: tríceps lateral y medial. POR QUÉ ESTE: agregado a pedido tuyo para que lateral/medial tengan trabajo directo (estaban en 0). Separado del overhead y no en superserie con él: mismo músculo = la segunda serie llegaría vacía. Si un sábado se acorta, este ejercicio se muda al martes de cinta (3×12-15 antes de la caminata) sin perder nada. ALTERNATIVAS: pushdown unilateral con manija · dip machine.' },
+    { id: 'hanging-leg-raise', sets: 2, reps: '10-12', rir: 'RIR 1-2', rest: "1' entre rondas", aprox: 0, ss_group: 2, notes: 'SS2 · colgado, RODILLAS flexionadas en Fase 1 · al final enrollar la pelvis hacia arriba · sin balanceo',
+      why: 'MÚSCULOS: recto abdominal (porción inferior) y oblicuos; flexores de cadera y antebrazos secundarios. POR QUÉ ESTE: el lunes cargaste el recto desde arriba (crunch); hoy desde abajo — el "curl pélvico" al final es lo que lo convierte de ejercicio de psoas en ejercicio de abdomen. Bonus: colgarse descomprime la columna al cerrar el sábado. PROGRESIÓN: 12 limpias con rodillas flexionadas → piernas rectas. ALTERNATIVAS: elevación de piernas en banco · crunch inverso en banco inclinado.' },
+    { id: 'pallof-press', sets: 2, reps: '10 por lado', rir: 'RIR 2', rest: "1' entre rondas", aprox: 0, ss_group: 2, notes: 'SS2 · de pie, pausa 2" con brazos extendidos · si rotás aunque sea un poco, el peso está alto · 10-12,5',
+      why: 'MÚSCULOS: oblicuos y transverso (anti-rotación); glúteo medio y estabilizadores de hombro secundarios. POR QUÉ ESTE: el abdomen estético no es solo el six pack — los oblicuos dibujan el marco. Y la anti-rotación es la función de core que más importa fuera del gym: es el gesto del pádel (frenar la rotación del golpe) y protege la sacroilíaca en cada cambio de dirección. Cero carga en columna, cero flexión: perfecto para cerrar. ALTERNATIVAS: plancha lateral 2×30"/lado · Pallof de rodillas.' }
   ],
   day1: [
     { id: 'incline-db', sets: 3, reps: '8', rir: 'RIR 1-2', ss_group: null, notes: 'Pesado · clavicular' },
@@ -821,7 +864,9 @@ const EXERCISE_EQUIPMENT = {
   'pull-ups': 'bodyweight', 'dips-tricep': 'bodyweight', 'dips-chest': 'bodyweight',
   plank: 'bodyweight', 'copenhagen-plank': 'bodyweight', 'pallof-press': 'machine',
   'hanging-leg-raise': 'bodyweight', 'rear-delt-fly': 'machine', 'hyperextension': 'bodyweight',
-  'chest-fly': 'machine', 'skull-crusher': 'barbell', 'calf-raise': 'machine', 'leg-press': 'machine'
+  'chest-fly': 'machine', 'skull-crusher': 'barbell', 'calf-raise': 'machine', 'leg-press': 'machine',
+  'chest-supported-high-row': 'machine', 'cable-fly-low-high': 'machine', 'overhead-ext-cable-uni': 'machine',
+  'ab-crunch-machine': 'machine', 'goblet-squat': 'dumbbells', 'atg-split-squat': 'dumbbells'
 };
 
 const INCREMENTS = { barbell: 5, dumbbells: 2, machine: 2.5, bodyweight: 2.5 };
@@ -832,7 +877,7 @@ function isTimeBased(exId) { return TIME_BASED_EXERCISES.has(exId); }
 function loadUnit(exId) { return isTimeBased(exId) ? 'seg' : 'kg'; }
 function loadUnitLabel(exId) { return isTimeBased(exId) ? 'Tiempo (seg)' : 'Peso (kg)'; }
 
-const WEEK_TARGET = 6;
+const WEEK_TARGET = 5;
 
 const STORAGE_KEYS = {
   workouts: 'hf_workouts', userExercises: 'hf_user_exercises', userState: 'hf_user_state',
@@ -866,24 +911,7 @@ function getAllExercises() {
 function findExercise(id) { return getAllExercises().find(e => e.id === id); }
 // Excepciones de UN día puntual (clave 'YYYY-MM-DD|typeId'). Expiran solas: pasada la fecha, el día vuelve al plan normal.
 const DAY_EXCEPTIONS = {
-  // 12/9: sesión especial de sábado (episodio lumbar activo) — Skills edición tirón, SIN impacto.
-  // Se abre desde "Entreno libre" con la fecha de hoy. Expira sola.
-  '2026-09-12|free': [
-    { id: 'pull-ups', sets: 4, reps: 'máx−2', rir: 'con intención', ss_group: null, notes: 'Colgarse descomprime la columna · agarre prono · dejá 2 reps en el tanque' },
-    { id: 'face-pull', sets: 3, reps: '12-15', rir: 'RIR 0-1', ss_group: 1, notes: 'SS · hombro posterior (ayer no trabajó) · 15 kg' },
-    { id: 'hammer-curl', sets: 2, reps: '10-12', rir: 'RIR 1', ss_group: 1, notes: 'SS · el pump de bíceps de la auditoría' },
-    { id: 'overhead-ext-rope', sets: 3, reps: '10-12', rir: 'RIR 1', ss_group: null, notes: 'SOLO si no hay agujetas de los fondos de ayer · completa la deuda de tríceps' }
-  ],
-  // 9/9: pinchazo lumbar → RDL descansa, hip thrust es el eje (columna apoyada, cero carga axial)
-  '2026-09-09|piernas': [
-    { id: 'hip-thrust', sets: 3, reps: '8-10', rir: 'RIR 2-3 · calibrar', ss_group: null, notes: 'EXCEPCIÓN DE HOY: eje en vez del RDL (lumbar con pinchazo) · arranque 40-50 · pausa 1seg arriba apretando glúteo · calor: gato-camello + puente sin peso + ATG' },
-    { id: 'bulgarian-split', sets: 3, reps: '8 por pierna', rir: 'RIR 1-2', ss_group: null, notes: 'Torso vertical · 14 kg · solo si NO pincha — si pincha, saltear sin culpa' },
-    { id: 'hip-flexor-cable', sets: 2, reps: '10-12 por lado', rir: 'liviano y controlado', ss_group: 1, notes: 'SS1 · psoas · tobillera en polea baja' },
-    { id: 'user-m-quina-adductor-1786553665627', sets: 3, reps: '8-12', rir: 'RIR 1-2', ss_group: 1, notes: 'SS1 · aductores' },
-    { id: 'calf-raise', sets: 2, reps: '12-15', rir: 'moderado', ss_group: 2, notes: 'SS2 cierre · el dedo tiene veto' },
-    { id: 'tibialis-raise', sets: 2, reps: '15', rir: '', ss_group: 2, notes: 'SS2 cierre · tobillo' },
-    { id: 'hyperextension', sets: 2, reps: '45-90 seg', rir: 'isométrica', ss_group: 2, notes: 'SS2 cierre · te alivia el sacro — pero si HOY reproduce el pinchazo, afuera' }
-  ]
+  // (vacío) — ejemplo: '2026-09-09|piernas': [ {...prescripciones...} ]
 };
 function dayPrescription(typeId, ds) { return DAY_EXCEPTIONS[ds + '|' + typeId] || DAY_EXERCISES[typeId] || []; }
 function getExerciseMeta(typeId, exId) {
@@ -1522,7 +1550,7 @@ function attachWeekSwipe() {
 }
 
 // ── Smart weekly suggestion engine ──
-const STRENGTH_TYPES = new Set(['upper-a','upper-b','day3','day1','day2','day4','free','tiron','empuje','piernas']);
+const STRENGTH_TYPES = new Set(['upper-a','upper-b','day3','day1','day2','day4','free','tiron','empuje','piernas','upper-c']);
 const UPPER_TYPES = new Set(['upper-a','upper-b','day1','day2','day4']);
 const CATEGORY_LABELS = { strength: 'Gym', cardio_intervals: 'Cardio', cardio_steady: 'Cardio', sport: 'Deporte', mobility: 'Movilidad', rest: 'Descanso' };
 
@@ -2082,6 +2110,39 @@ const EXERCISE_ALTERNATIVES = {
   'pallof-press': ['side-plank', 'plank'],
   'suitcase-carry': ['user-farmer-carry-1788784113597', 'side-plank', 'plank'],
   'user-farmer-carry-1788784113597': ['suitcase-carry', 'side-plank'],
+  // ── Rediseño oct-2026: shuffles acordados ejercicio por ejercicio (las claves de abajo pisan a las de arriba) ──
+  'incline-db': ['incline-machine-press', 'incline-bench'],
+  'lat-pulldown': ['cable-row', 'pull-ups'],
+  'lateral-raise-cable': ['lateral-raise-db', 'lateral-raise-cable'],
+  'lateral-raise-db': ['lateral-raise-cable'],
+  'pec-deck': ['cable-fly', 'chest-fly'],
+  'overhead-ext-rope': ['overhead-ext-cable-uni', 'tricep-pushdown'],
+  'overhead-ext-cable-uni': ['tricep-pushdown', 'overhead-ext-rope'],
+  'tricep-pushdown': ['overhead-ext-cable-uni', 'dips-tricep'],
+  'ab-crunch-machine': ['cable-crunch', 'hanging-leg-raise'],
+  'pull-ups': ['lat-pulldown'],
+  'technogym-row': ['user-remo-incl-polea-1788781429587', 'cable-row'],
+  'user-remo-incl-polea-1788781429587': ['technogym-row', 'cable-row'],
+  'dips-chest': ['db-bench', 'dips-tricep'],
+  'rear-delt-fly': ['chest-supported-high-row', 'face-pull'],
+  'cable-fly-low-high': ['pec-deck', 'incline-db'],
+  'incline-db-curl': ['db-curl', 'hammer-curl'],
+  'bulgarian-split': ['atg-split-squat', 'leg-press'],
+  'atg-split-squat': ['bulgarian-split', 'goblet-squat'],
+  'goblet-squat': ['bulgarian-split', 'atg-split-squat'],
+  'rdl': ['leg-curl'],
+  'hip-thrust': ['rdl'],
+  'leg-press': ['bulgarian-split', 'atg-split-squat'],
+  'leg-curl': ['rdl'],
+  'copenhagen-plank': ['user-m-quina-adductor-1786553665627', 'side-plank'],
+  'user-m-quina-adductor-1786553665627': ['copenhagen-plank'],
+  'calf-raise': ['tibialis-raise'],
+  'hyperextension': ['dead-bug'],
+  'db-ohp': ['pike-pushup', 'ohp'],
+  'chest-supported-high-row': ['rear-delt-fly', 'user-remo-incl-polea-1788781429587'],
+  'hammer-curl': ['incline-db-curl', 'db-curl'],
+  'hanging-leg-raise': ['ab-crunch-machine', 'cable-crunch'],
+  'pallof-press': ['side-plank', 'dead-bug'],
   'side-plank': ['plank', 'pallof-press'],
   'hyperextension': ['rdl']
 };
@@ -2160,8 +2221,11 @@ function renderStrengthDay(typeId, dateStr) {
     const isFirst = idx === 0;
     const isLast = idx === draft.exercise_order.length - 1;
     const metaLine = meta
-      ? `${ssTag}<span>${meta.sets}×${meta.reps}</span>${meta.rir ? `<span>· ${meta.rir}</span>` : ''}${meta.notes ? `<span class="note">${meta.notes}</span>` : ''}`
+      ? `${ssTag}<span>${meta.sets}×${meta.reps}</span>${meta.rir ? `<span>· ${meta.rir}</span>` : ''}${meta.rest ? `<span>· ⏱ ${meta.rest}</span>` : ''}${meta.aprox ? `<span>· ${meta.aprox} aprox</span>` : ''}${meta.notes ? `<span class="note">${meta.notes}</span>` : ''}`
       : `<span class="badge">extra</span><span>${ex.primary || ''}</span>`;
+    const whyHTML = meta && meta.why
+      ? `<details style="margin:8px 0 10px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:8px 11px"><summary style="cursor:pointer;font-size:12px;font-weight:800;color:var(--accent-2);list-style:none">🧠 ¿Por qué este ejercicio?</summary><div style="color:var(--text-2);font-size:12px;line-height:1.5;margin-top:7px">${meta.why.replace(/(MÚSCULOS|POR QUÉ ESTE[^:]*|POR QUÉ (PRIMERO|SEGUNDO|TERCERO|CUARTO|ACÁ|ÚLTIMO)|CUES?|PROGRESIÓN|ALTERNATIVAS|CONDICIÓN):/g, '<br><b style="color:var(--text)">$1:</b>').replace(/^<br>/, '')}</div></details>`
+      : '';
 
     // Histórico inline
     const lastSession = getLastSessionForExercise(exId, dateStr);
@@ -2211,6 +2275,7 @@ function renderStrengthDay(typeId, dateStr) {
           <div class="exercise-collapse"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg></div>
         </div>
         <div class="exercise-body">
+          ${whyHTML}
           ${lastSessionHTML}
           ${suggestionHTML}
           <div class="exercise-actions">
@@ -2355,17 +2420,8 @@ function renderSprintsDay(dateStr) {
   const tc = getTimerConfig(prescription);
 
   document.getElementById('day-content').innerHTML = `
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px">
-      <div style="font-weight:800;font-size:14px;margin-bottom:8px">🎯 Skills primero (fresco) · ~25 min</div>
-      <div style="display:flex;flex-direction:column;gap:7px;font-size:13px;color:var(--text-2)">
-        <div><b style="color:var(--text)">1 · SS Dominadas + Pike push-up</b> — 3-4 rondas × (máx−2 reps + 6-8) · acá sí con intención, es donde progresan · alterná el agarre por semana: prono (dorsal) / supino (bíceps)</div>
-        <div><b style="color:var(--text)">2 · Banca con barra TÉCNICA</b> — 3×5 @ 60-65 kg · velocidad y técnica, jamás al fallo · a este peso no hace falta spotter</div>
-        <div><b style="color:var(--text)">3 · SS Vuelo lateral + Curl martillo</b> — 2×12-15 + 2×10-12 · pump liviano, tapa los déficits de hombro lateral y bíceps</div>
-      </div>
-      <div style="font-size:11px;color:var(--text-3);margin-top:8px">Día bonus: no es obligatorio, pero suma. Después de esto, las pasadas ↓</div>
-    </div>
     <div class="cardio-prescription">
-      <div class="label">Pasadas · Etapa ${prescription.week}${prescription.deload ? ' (descarga 🔋)' : ''}</div>
+      <div class="label">Plan de hoy · Etapa ${prescription.week}${prescription.deload ? ' (descarga 🔋)' : ''}</div>
       <div class="value">${prescription.series} × ${prescription.rounds} pasadas a ${prescription.velocity} km/h</div>
       <div class="meta">Formato ${prescription.work}" corrida / ${prescription.rest}" descanso · inclinación 1° · avanza al completar la sesión</div>
     </div>
@@ -3705,7 +3761,9 @@ function renderWhoopDashboard() {
 // te espera al día siguiente y todo se desplaza. Domingo resetea (lo pendiente
 // se pierde y se avisa el lunes). "Hecho" se deriva de los workouts logueados,
 // que ya sincronizan con Supabase → web y celu ven la misma cola.
-const WEEK_SEQUENCE = ['tiron', 'z2', 'piernas', 'empuje', 'sprints', 'mobility'];
+// Rediseño oct-2026: Upper A → Motor → Upper B → Lower → Upper C. Viernes libre, domingo bonus.
+const WEEK_SEQUENCE = ['tiron', 'z2', 'empuje', 'piernas', 'upper-c'];
+const QUEUE_FREE_WEEKDAYS = new Set([5]); // viernes: la cola lo saltea (día libre por diseño)
 const QUEUE_START = '2026-07-27'; // lunes en que arrancó la cola (antes no hay avisos)
 function mondayOf(ds) { const d = new Date(ds + 'T00:00:00'); d.setDate(d.getDate() - (getWeekday(d) - 1)); return dateToISO(d); }
 function addDaysISO(ds, n) { const d = new Date(ds + 'T00:00:00'); d.setDate(d.getDate() + n); return dateToISO(d); }
@@ -3771,10 +3829,17 @@ function getDayPlan(ds) {
   if (ov) { try { const a = JSON.parse(ov); if (Array.isArray(a)) return a; } catch (e) {} }
   const today = todayStr();
   if (mondayOf(ds) === mondayOf(today) && ds >= today) {
-    if (getWeekday(new Date(ds + 'T00:00:00')) === 7) return [];
+    const wdDs = getWeekday(new Date(ds + 'T00:00:00'));
+    if (wdDs === 7 || QUEUE_FREE_WEEKDAYS.has(wdDs)) return [];
     const pending = queuePending();
-    const offset = Math.round((new Date(ds + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000);
-    return pending[offset] ? [pending[offset]] : [];
+    // índice = cuántos días "de cola" (ni domingo ni libres) hay entre hoy y ds
+    let idx = 0, d = today;
+    while (d < ds) {
+      const w = getWeekday(new Date(d + 'T00:00:00'));
+      if (w !== 7 && !QUEUE_FREE_WEEKDAYS.has(w)) idx++;
+      d = addDaysISO(d, 1);
+    }
+    return pending[idx] ? [pending[idx]] : [];
   }
   if (ds < today) return []; // pasado: se muestra solo lo logueado (lo salteado lo cubre el aviso del lunes)
   const wd = getWeekday(new Date(ds + 'T00:00:00'));
@@ -3783,7 +3848,7 @@ function getDayPlan(ds) {
 function setDayPlan(ds, typeIds) { localStorage.setItem(planKey(ds), JSON.stringify(typeIds)); }
 
 // ═══════════════ APP 10x: Progreso · Coach semanal · Regla del día siguiente · Peso ═══════════════
-const QUEUE_EXPENSIVE = new Set(['tiron', 'piernas', 'empuje', 'sprints', 'padel']);
+const QUEUE_EXPENSIVE = new Set(['tiron', 'piernas', 'empuje', 'upper-c', 'sprints', 'padel']);
 const KEY_LIFTS = [
   ['lat-pulldown', 'Jalón'], ['incline-db', 'Incl. mancuernas'], ['hip-thrust', 'Hip thrust'],
   ['rdl', 'RDL'], ['pull-ups', 'Dominadas'], ['bulgarian-split', 'Búlgara'],
@@ -3899,6 +3964,29 @@ suggestNextSession = function (exId, repsRange, dateStr) {
   if (ans === 'pain') return Object.assign({}, s, { action: 'maintain', note: '⚠️ Reportaste dolor al día siguiente → se repite el peso (repetir también es progreso: es el tejido poniéndose al día)' });
   if (ans === 'ok' && s.action !== 'down') return Object.assign({}, s, { note: (s.note || '') + ' · ✓ regla del día siguiente aprobada' });
   return s;
+};
+
+// ── FASE 1 (rediseño oct-2026): cargas de arranque de técnica/conexión ──
+// Hasta que loguees la primera sesión de un ejercicio DESPUÉS del inicio de la fase, la sugerencia
+// usa estas cargas (si no, te sugeriría tus pesos viejos: inclinado 32, jalón 80...).
+const FASE1 = {
+  start: '2026-10-05', weeks: 4,
+  loads: { 'incline-db': 24, 'lat-pulldown': 57.5, 'lateral-raise-cable': 5, 'pec-deck': 15, 'overhead-ext-rope': 15, 'ab-crunch-machine': '',
+    'pull-ups': '', 'technogym-row': 20, 'user-remo-incl-polea-1788781429587': 20, 'dips-chest': '', 'rear-delt-fly': '', 'cable-fly-low-high': 5, 'incline-db-curl': 8,
+    'bulgarian-split': 10, 'atg-split-squat': 8, 'rdl': 12, 'hip-thrust': 70, 'leg-press': '', 'leg-curl': '', 'copenhagen-plank': 25, 'user-m-quina-adductor-1786553665627': 15, 'calf-raise': '', 'hyperextension': 50,
+    'db-ohp': 14, 'chest-supported-high-row': 15, 'lateral-raise-db': 8, 'overhead-ext-cable-uni': '', 'hammer-curl': 10, 'tricep-pushdown': '', 'hanging-leg-raise': '', 'pallof-press': 10 }
+};
+function fase1Week() { return Math.max(1, Math.min(FASE1.weeks + 1, Math.floor((new Date(mondayOf(todayStr()) + 'T12:00:00') - new Date(mondayOf(FASE1.start) + 'T12:00:00')) / (7 * 86400000)) + 1)); }
+const _suggestRdl = suggestNextSession;
+suggestNextSession = function (exId, repsRange, dateStr) {
+  if (exId in FASE1.loads) {
+    const since = loadWorkouts().some(w => w.date >= FASE1.start && w.date < (dateStr || todayStr()) && w.sets && (w.sets[exId] || []).some(s => s.weight !== '' && s.weight != null && s.reps));
+    if (!since) {
+      const w = FASE1.loads[exId];
+      return { weight: w, action: 'first', note: `Carga de arranque Fase 1 (técnica y conexión)${w === '' ? ' — calibrá: el peso que te deje terminar el rango con RIR 2-3' : ' · bajada 3", RIR 2-3 · se sube cuando todas las series lleguen al tope del rango'}`, last_weight: null, last_avg_rpe: null, last_date: null, last_sets: [] };
+    }
+  }
+  return _suggestRdl(exId, repsRange, dateStr);
 };
 
 // ── Coach semanal (domingo y lunes) ──
@@ -4104,8 +4192,19 @@ function renderTodayActivities() {
     if (isToday && queueGuardNote) inner = `<div style="color:var(--text-3);font-size:12px;margin-bottom:8px">${queueGuardNote}</div>` + inner;
   }
   const notice = (ds === todayStr()) ? (weeklyCoachHTML() + dayAfterCheckHTML() + recoveryHintHTML() + weekNoticeHTML()) : '';
+  const fw = fase1Week();
+  const faseHTML = (ds === todayStr()) ? `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:11px 14px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <span style="font-weight:800;font-size:13px">${fw <= FASE1.weeks ? `🟢 Fase 1 · técnica y conexión · semana ${fw}/${FASE1.weeks}` : '🟡 Fase 1 completa — toca evaluar el pase a Fase 2'}</span>
+        <span style="color:var(--text-3);font-size:11px">5 fijos/sem</span>
+      </div>
+      <div style="color:var(--text-3);font-size:11px;margin-top:3px">Pasa a Fase 2 con ≥4 de 5 sesiones cada semana + 0 episodios. Semana 1 = adaptación (RIR 3-4). Viernes libre · domingo bonus.</div>
+      <details style="margin-top:6px"><summary style="cursor:pointer;font-size:11px;font-weight:700;color:var(--accent-2);list-style:none">📡 Radar — para días bonus o si falta algo</summary>
+        <div style="color:var(--text-2);font-size:11px;line-height:1.5;margin-top:5px">· <b>Bonus del domingo:</b> trote suave en zona, pádel o natación — cuentan, no se exigen.<br>· <b>Si el sábado se acorta:</b> pushdown 3×12-15 el martes antes de la cinta.<br>· <b>Cuádriceps/rodilla:</b> ATG split squat (⇄ de la búlgara) o goblet squat liviana como aproximación.<br>· <b>Glúteo medio:</b> monster walk con banda en el calor de piernas.<br>· <b>Fase 2:</b> Nordic curl, RDL con barra, prono ancho, sentadilla candidata, pasadas al menú del martes.</div>
+      </details>
+    </div>` : '';
   el.innerHTML = `<div style="margin-bottom:16px">
-    ${notice}
+    ${faseHTML}${notice}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
       <span style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Actividad</span>
       <button onclick="openChangePlan('${ds}')" style="background:none;border:none;color:var(--accent-2);font-size:13px;font-weight:600;cursor:pointer">Cambiar</button>
@@ -4511,6 +4610,7 @@ const WHOOP_SPORT_HINTS = {
   tiron: ['weight', 'strength', 'function', 'activity'],
   empuje: ['weight', 'strength', 'function', 'activity'],
   piernas: ['weight', 'strength', 'function', 'activity'],
+  'upper-c': ['weight', 'strength', 'function', 'activity'],
   mobility: ['yoga', 'stretch', 'mobility', 'pilates'],
   'upper-a': ['weight', 'strength', 'function', 'activity'],
   'upper-b': ['weight', 'strength', 'function', 'activity'],
