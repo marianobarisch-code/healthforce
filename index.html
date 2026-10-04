@@ -481,7 +481,7 @@
   <div class="header"><h1>Ajustes</h1></div>
   <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Conexiones</div>
   <div id="gcal-card"></div>
-  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.10.05</strong></div>
+  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.10.06</strong></div>
 </section>
 
 <nav class="nav" id="bottom-nav">
@@ -1428,6 +1428,7 @@ async function pushWorkoutToServer(localWorkout) {
 
 // =============== UI ===============
 function showScreen(name) {
+  if (name !== 'day' && typeof paceHide === 'function') paceHide();
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -2297,6 +2298,7 @@ function renderStrengthDay(typeId, dateStr) {
   html += `<button class="btn" onclick="finishWorkout()">Finalizar entrenamiento</button>`;
   if (hasExisting) html += `<button class="btn btn-danger" onclick="deleteWorkout()">Eliminar entrenamiento</button>`;
   content.innerHTML = html;
+  paceMount();
   const firstCard = content.querySelector('.exercise-card');
   if (firstCard) firstCard.classList.add('expanded');
   initExerciseSortable();
@@ -2328,6 +2330,7 @@ function isExerciseComplete(exId) {
 function updateExerciseCompletion(exId) {
   const card = document.querySelector(`.exercise-card[data-exid="${exId}"]`);
   if (card) card.classList.toggle('completed', isExerciseComplete(exId));
+  if (typeof paceRender === 'function') paceRender();
 }
 
 function renderSets(exId, sets, history) {
@@ -2761,6 +2764,7 @@ function updateCardio(field, val) {
 
 async function finishWorkout() {
   if (!currentDraft) return;
+  if (typeof paceStop === 'function') paceStop(true);
   // Z2: compute total duration from min+sec, and store distance
   if (currentDraft.type_id === 'z2' && (currentDraft.duration_min || currentDraft.duration_sec)) {
     const min = parseFloat(currentDraft.duration_min) || 0;
@@ -3988,6 +3992,131 @@ suggestNextSession = function (exId, repsRange, dateStr) {
   }
   return _suggestRdl(exId, repsRange, dateStr);
 };
+
+// ═══ RITMO DE SESIÓN (pedido 4/10): pop-up minimizable en la pantalla del día.
+// Calcula el "horario" del día a partir de series, aproximaciones y descansos de cada ejercicio,
+// y lo compara con tu avance real (ejercicios completos = todas las series con reps + RPE).
+// También tiene cronómetro de descanso con beep. El inicio se persiste por día (hf_pace_<tipo>_<fecha>).
+const PACE = { setDur: 0.75, setDurUni: 1.4, aproxDur: 1.6, transition: 1, defaultRest: 2 };
+let paceOpen = false, paceTimer = null;
+function paceKey() { return 'hf_pace_' + currentDayTypeId + '_' + currentDayDate; }
+function paceState() { try { return JSON.parse(localStorage.getItem(paceKey()) || 'null'); } catch (e) { return null; } }
+function paceSave(st) { if (st) localStorage.setItem(paceKey(), JSON.stringify(st)); else localStorage.removeItem(paceKey()); }
+function paceRestMin(meta) {
+  const m = ((meta && meta.rest) || '').replace(',', '.').match(/([\d.]+)/);
+  return m ? parseFloat(m[1]) : PACE.defaultRest;
+}
+function paceSetDur(exId, meta) {
+  if (isTimeBased(exId)) { const m = ((meta && meta.reps) || '').match(/(\d+)\s*-?\s*(\d+)?/); const s = m ? parseInt(m[2] || m[1], 10) : 45; return s / 60 + 0.3; }
+  return /por (lado|pierna|brazo)/i.test((meta && meta.reps) || '') ? PACE.setDurUni : PACE.setDur;
+}
+// Plan: lista de bloques (ejercicio solo o superserie) con inicio/fin planificados en minutos
+function pacePlan() {
+  if (!currentDraft || !currentDraft.exercise_order) return [];
+  const order = currentDraft.exercise_order;
+  const blocks = [];
+  let i = 0;
+  while (i < order.length) {
+    const exId = order[i];
+    const meta = getExerciseMeta(currentDayTypeId, exId) || getExerciseMeta(currentDayTypeId, (currentDraft.swap_origin || {})[exId]) || {};
+    const group = meta.ss_group;
+    const ids = [exId];
+    if (group) { let j = i + 1; while (j < order.length) { const mj = getExerciseMeta(currentDayTypeId, order[j]) || {}; if (mj.ss_group === group) { ids.push(order[j]); j++; } else break; } }
+    const metas = ids.map(id => getExerciseMeta(currentDayTypeId, id) || getExerciseMeta(currentDayTypeId, (currentDraft.swap_origin || {})[id]) || {});
+    const sets = Math.max(...ids.map((id, k) => ((currentDraft.sets[id] || []).length) || metas[k].sets || 3));
+    const roundDur = ids.reduce((a, id, k) => a + paceSetDur(id, metas[k]), 0);
+    const rest = paceRestMin(metas[0]);
+    const aprox = ids.length === 1 ? (metas[0].aprox || 0) : 0;
+    const dur = aprox * PACE.aproxDur + sets * roundDur + Math.max(0, sets - 1) * rest;
+    blocks.push({ ids, names: ids.map(id => (findExercise(id) || { name: id }).name), sets, rest, dur, ss: !!group });
+    i += ids.length;
+  }
+  let t = 0;
+  blocks.forEach((b, k) => { if (k > 0) t += PACE.transition; b.start = t; t += b.dur; b.end = t; });
+  return blocks;
+}
+function paceMount() {
+  if (!STRENGTH_TYPES.has(currentDayTypeId)) { paceHide(); return; }
+  let w = document.getElementById('pace-widget');
+  if (!w) { w = document.createElement('div'); w.id = 'pace-widget'; w.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));z-index:110;width:min(92vw,480px)'; document.body.appendChild(w); }
+  w.style.display = '';
+  paceRender();
+  if (paceTimer) clearInterval(paceTimer);
+  paceTimer = setInterval(paceRender, 1000);
+}
+function paceHide() { const w = document.getElementById('pace-widget'); if (w) w.style.display = 'none'; if (paceTimer) { clearInterval(paceTimer); paceTimer = null; } }
+function paceStart() { paceSave({ start: Date.now(), restEnd: null }); paceOpen = true; paceRender(); toast('▶ Sesión iniciada — el reloj corre'); }
+function paceStop(silent) {
+  if (!paceState()) return;
+  if (!silent && !confirm('¿Terminar el seguimiento de ritmo de esta sesión?')) return;
+  paceSave(null); paceOpen = false; paceRender();
+}
+function paceToggle() { paceOpen = !paceOpen; paceRender(); }
+function paceRest(min) {
+  const st = paceState(); if (!st) return;
+  st.restEnd = Date.now() + Math.round(min * 60000); st.restBeeped = false; paceSave(st); paceRender();
+}
+function paceRestClear() { const st = paceState(); if (!st) return; st.restEnd = null; paceSave(st); paceRender(); }
+function paceFmt(min) { return Math.round(min) + "'"; }
+function paceRender() {
+  const w = document.getElementById('pace-widget'); if (!w || w.style.display === 'none') return;
+  const st = paceState();
+  const plan = pacePlan();
+  const total = plan.length ? plan[plan.length - 1].end : 0;
+  const tplName = (DAY_TEMPLATES.find(t => t.type_id === currentDayTypeId) || {}).name || '';
+  const card = (inner) => `<div style="background:var(--surface);border:1px solid var(--accent);border-radius:18px;box-shadow:0 10px 40px rgba(0,0,0,.6);padding:10px 14px;color:var(--text)">${inner}</div>`;
+  if (!st) {
+    w.innerHTML = card(`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div><div style="font-weight:800;font-size:13px">⏱ Ritmo de sesión</div><div style="color:var(--text-3);font-size:11px">Plan de hoy: ~${paceFmt(total)} de trabajo efectivo · ${plan.length} bloques</div></div>
+      <button onclick="paceStart()" style="background:var(--accent);color:#0a0a0a;border:none;border-radius:999px;padding:9px 14px;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap">▶ Iniciar</button>
+    </div>`);
+    return;
+  }
+  const elapsed = (Date.now() - st.start) / 60000;
+  // bloque actual = primero con algún ejercicio incompleto
+  let cur = plan.findIndex(b => !b.ids.every(id => isExerciseComplete(id)));
+  const allDone = cur === -1; if (allDone) cur = plan.length - 1;
+  const b = plan[cur] || { start: 0, end: 0, names: ['—'] };
+  let status, color;
+  if (allDone) { status = `✓ Todo hecho en ${paceFmt(elapsed)} (plan ${paceFmt(total)})`; color = 'var(--success)'; }
+  else if (elapsed < b.start) { status = `🟢 adelantado ${paceFmt(b.start - elapsed)}`; color = 'var(--success)'; }
+  else if (elapsed <= b.end) { status = `🟢 en horario`; color = 'var(--success)'; }
+  else { const d = elapsed - b.end; status = `${d > 4 ? '🔴' : '🟡'} atrasado ${paceFmt(d)}`; color = d > 4 ? 'var(--danger)' : 'var(--gold)'; }
+  // descanso
+  let restHTML = '';
+  if (st.restEnd) {
+    const left = Math.max(0, Math.round((st.restEnd - Date.now()) / 1000));
+    if (left === 0 && !st.restBeeped) { st.restBeeped = true; paceSave(st); tmrBeep(880, 180); setTimeout(() => tmrBeep(880, 180), 250); tmrVibrate([200, 100, 200]); }
+    const mm = Math.floor(left / 60), ss = String(left % 60).padStart(2, '0');
+    restHTML = `<span onclick="paceRestClear()" style="background:${left === 0 ? 'var(--success)' : 'var(--surface-2)'};border:1px solid var(--border);border-radius:999px;padding:4px 10px;font-weight:800;font-size:13px;font-variant-numeric:tabular-nums;cursor:pointer">${left === 0 ? '¡Dale!' : '⏳ ' + mm + ':' + ss}</span>`;
+  }
+  const pill = `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+    <div onclick="paceToggle()" style="flex:1;min-width:0;cursor:pointer">
+      <div style="display:flex;align-items:center;gap:8px"><span style="font-weight:800;font-size:14px;font-variant-numeric:tabular-nums">⏱ ${paceFmt(elapsed)}</span><span style="color:${color};font-weight:700;font-size:12px">${status}</span></div>
+      <div style="color:var(--text-3);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${allDone ? 'Tocá para ver el resumen' : `Ahora: ${b.names.join(' + ')} · fin plan ${paceFmt(b.end)}`}</div>
+    </div>
+    ${restHTML}
+    <button onclick="paceToggle()" style="background:none;border:1px solid var(--border);border-radius:999px;color:var(--text-2);width:30px;height:30px;font-size:14px;cursor:pointer">${paceOpen ? '▾' : '▴'}</button>
+  </div>`;
+  let panel = '';
+  if (paceOpen) {
+    const rows = plan.map((p, k) => {
+      const done = p.ids.every(id => isExerciseComplete(id));
+      const mark = done ? '✓' : (k === cur && !allDone ? '→' : '·');
+      const col = done ? 'var(--success)' : (k === cur && !allDone ? 'var(--accent)' : 'var(--text-3)');
+      return `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0;color:${col}"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${mark} ${p.names.join(' + ')}${p.ss ? ' (SS)' : ''}</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">${paceFmt(p.start)}–${paceFmt(p.end)}</span></div>`;
+    }).join('');
+    const restBtn = (m, label) => `<button onclick="paceRest(${m})" style="background:${Math.abs(m - b.rest) < 0.01 ? 'var(--accent)' : 'var(--surface-2)'};color:${Math.abs(m - b.rest) < 0.01 ? '#0a0a0a' : 'var(--text)'};border:1px solid var(--border);border-radius:999px;padding:6px 11px;font-weight:800;font-size:12px;cursor:pointer">${label}</button>`;
+    const rests = [...new Set([b.rest, 3, 2.5, 1.5, 1])].slice(0, 4);
+    panel = `<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px;max-height:38vh;overflow:auto">
+      <div style="color:var(--text-3);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">${tplName} · plan ${paceFmt(total)} efectivos (+1' por cambio de máquina incluido)</div>
+      ${rows}
+      <div style="display:flex;align-items:center;gap:6px;margin-top:9px;flex-wrap:wrap"><span style="color:var(--text-3);font-size:11px">Descanso:</span>${rests.map(m => restBtn(m, String(m).replace('.', ',') + "'")).join('')}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px"><span style="color:var(--text-3);font-size:10px">Un ejercicio cuenta como hecho cuando todas sus series tienen reps y RPE.</span><button onclick="paceStop()" style="background:none;border:1px solid var(--border);border-radius:999px;color:var(--text-3);font-size:11px;padding:4px 9px;cursor:pointer">Terminar</button></div>
+    </div>`;
+  }
+  w.innerHTML = card(pill + panel);
+}
 
 // ── Coach semanal (domingo y lunes) ──
 function weeklyCoachHTML() {
