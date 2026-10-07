@@ -481,7 +481,7 @@
   <div class="header"><h1>Ajustes</h1></div>
   <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Conexiones</div>
   <div id="gcal-card"></div>
-  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.10.06</strong></div>
+  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.10.07</strong></div>
 </section>
 
 <nav class="nav" id="bottom-nav">
@@ -3836,6 +3836,10 @@ function getDayPlan(ds) {
     const wdDs = getWeekday(new Date(ds + 'T00:00:00'));
     if (wdDs === 7 || QUEUE_FREE_WEEKDAYS.has(wdDs)) return [];
     const pending = queuePending();
+    // Si HOY ya se hizo una sesión de la cola, el día está "consumido": lo pendiente arranca mañana
+    // (bug 7/10: Upper B hecho + Lower "pendiente" el mismo día).
+    const todayConsumed = workoutsForDate(today).some(w => WEEK_SEQUENCE.includes(w.type_id));
+    if (ds === today && todayConsumed) return [];
     // índice = cuántos días "de cola" (ni domingo ni libres) hay entre hoy y ds
     let idx = 0, d = today;
     while (d < ds) {
@@ -3843,6 +3847,7 @@ function getDayPlan(ds) {
       if (w !== 7 && !QUEUE_FREE_WEEKDAYS.has(w)) idx++;
       d = addDaysISO(d, 1);
     }
+    if (todayConsumed) idx--;
     return pending[idx] ? [pending[idx]] : [];
   }
   if (ds < today) return []; // pasado: se muestra solo lo logueado (lo salteado lo cubre el aviso del lunes)
