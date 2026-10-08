@@ -481,7 +481,7 @@
   <div class="header"><h1>Ajustes</h1></div>
   <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Conexiones</div>
   <div id="gcal-card"></div>
-  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.10.07</strong></div>
+  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.10.08</strong></div>
 </section>
 
 <nav class="nav" id="bottom-nav">
@@ -3834,20 +3834,26 @@ function getDayPlan(ds) {
   const today = todayStr();
   if (mondayOf(ds) === mondayOf(today) && ds >= today) {
     const wdDs = getWeekday(new Date(ds + 'T00:00:00'));
-    if (wdDs === 7 || QUEUE_FREE_WEEKDAYS.has(wdDs)) return [];
+    if (wdDs === 7) return [];
     const pending = queuePending();
-    // Si HOY ya se hizo una sesión de la cola, el día está "consumido": lo pendiente arranca mañana
-    // (bug 7/10: Upper B hecho + Lower "pendiente" el mismo día).
+    // Un día con sesión de la cola ya hecha queda "consumido": lo pendiente arranca mañana.
     const todayConsumed = workoutsForDate(today).some(w => WEEK_SEQUENCE.includes(w.type_id));
     if (ds === today && todayConsumed) return [];
-    // índice = cuántos días "de cola" (ni domingo ni libres) hay entre hoy y ds
+    // Viernes libre por diseño — salvo que la semana venga atrasada (más pendientes que días de cola
+    // disponibles hasta el sábado): entonces el viernes se ofrece como día de recupero.
+    const isFreeDay = (w) => w === 7 || QUEUE_FREE_WEEKDAYS.has(w);
+    let avail = 0, x = today;
+    while (mondayOf(x) === mondayOf(today)) { const w = getWeekday(new Date(x + 'T00:00:00')); if (!isFreeDay(w) && !(x === today && todayConsumed)) avail++; x = addDaysISO(x, 1); }
+    const behind = pending.length > avail;
+    if (QUEUE_FREE_WEEKDAYS.has(wdDs) && !behind) return [];
+    // índice = cuántos días de cola hay entre hoy (si no está consumido) y ds
     let idx = 0, d = today;
     while (d < ds) {
       const w = getWeekday(new Date(d + 'T00:00:00'));
-      if (w !== 7 && !QUEUE_FREE_WEEKDAYS.has(w)) idx++;
+      const free = w === 7 || (QUEUE_FREE_WEEKDAYS.has(w) && !behind);
+      if (!free && !(d === today && todayConsumed)) idx++;
       d = addDaysISO(d, 1);
     }
-    if (todayConsumed) idx--;
     return pending[idx] ? [pending[idx]] : [];
   }
   if (ds < today) return []; // pasado: se muestra solo lo logueado (lo salteado lo cubre el aviso del lunes)
