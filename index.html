@@ -481,7 +481,7 @@
   <div class="header"><h1>Ajustes</h1></div>
   <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Conexiones</div>
   <div id="gcal-card"></div>
-  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.10.08</strong></div>
+  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.10.13</strong></div>
 </section>
 
 <nav class="nav" id="bottom-nav">
@@ -4049,20 +4049,61 @@ function pacePlan() {
 function paceMount() {
   if (!STRENGTH_TYPES.has(currentDayTypeId)) { paceHide(); return; }
   let w = document.getElementById('pace-widget');
-  if (!w) { w = document.createElement('div'); w.id = 'pace-widget'; w.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));z-index:110;width:min(92vw,480px)'; document.body.appendChild(w); }
+  if (!w) {
+    w = document.createElement('div'); w.id = 'pace-widget';
+    w.style.cssText = 'position:fixed;z-index:110;width:min(92vw,480px);touch-action:none';
+    document.body.appendChild(w);
+    paceInitDrag(w);
+  }
+  paceApplyPos(w);
   w.style.display = '';
+  const sd = document.getElementById('screen-day'); if (sd) sd.style.paddingBottom = '150px';
   paceRender();
   if (paceTimer) clearInterval(paceTimer);
   paceTimer = setInterval(paceRender, 1000);
 }
-function paceHide() { const w = document.getElementById('pace-widget'); if (w) w.style.display = 'none'; if (paceTimer) { clearInterval(paceTimer); paceTimer = null; } }
+function paceHide() { const w = document.getElementById('pace-widget'); if (w) w.style.display = 'none'; if (paceTimer) { clearInterval(paceTimer); paceTimer = null; } const sd = document.getElementById('screen-day'); if (sd) sd.style.paddingBottom = ''; }
+// Posición: por defecto abajo-centro; si lo arrastraste, se recuerda (hf_pace_pos). Modo mini = chip chico.
+let paceMini = localStorage.getItem('hf_pace_mini') === '1';
+function paceApplyPos(w) {
+  let pos = null; try { pos = JSON.parse(localStorage.getItem('hf_pace_pos') || 'null'); } catch (e) {}
+  if (pos && typeof pos.x === 'number') {
+    w.style.left = Math.max(4, Math.min(window.innerWidth - 60, pos.x)) + 'px';
+    w.style.top = Math.max(4, Math.min(window.innerHeight - 60, pos.y)) + 'px';
+    w.style.bottom = 'auto'; w.style.transform = 'none';
+  } else { w.style.left = '50%'; w.style.top = 'auto'; w.style.bottom = 'calc(84px + env(safe-area-inset-bottom))'; w.style.transform = 'translateX(-50%)'; }
+  w.style.width = paceMini ? 'auto' : 'min(92vw,480px)';
+}
+function paceInitDrag(w) {
+  let sx = 0, sy = 0, ox = 0, oy = 0, moved = false, dragging = false;
+  w.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button, input, select, summary')) return;
+    dragging = true; moved = false; sx = e.clientX; sy = e.clientY;
+    const r = w.getBoundingClientRect(); ox = r.left; oy = r.top;
+    w.setPointerCapture(e.pointerId);
+  });
+  w.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (Math.abs(dx) + Math.abs(dy) > 6) moved = true;
+    if (!moved) return;
+    w.style.left = (ox + dx) + 'px'; w.style.top = (oy + dy) + 'px'; w.style.bottom = 'auto'; w.style.transform = 'none';
+  });
+  const end = (e) => {
+    if (!dragging) return; dragging = false;
+    if (moved) { const r = w.getBoundingClientRect(); localStorage.setItem('hf_pace_pos', JSON.stringify({ x: r.left, y: r.top })); w.dataset.justDragged = '1'; setTimeout(() => delete w.dataset.justDragged, 150); }
+  };
+  w.addEventListener('pointerup', end); w.addEventListener('pointercancel', end);
+}
+function paceToggleMini() { paceMini = !paceMini; localStorage.setItem('hf_pace_mini', paceMini ? '1' : '0'); const w = document.getElementById('pace-widget'); if (w) paceApplyPos(w); paceRender(); }
+function paceResetPos() { localStorage.removeItem('hf_pace_pos'); const w = document.getElementById('pace-widget'); if (w) paceApplyPos(w); }
 function paceStart() { paceSave({ start: Date.now(), restEnd: null }); paceOpen = true; paceRender(); toast('▶ Sesión iniciada — el reloj corre'); }
 function paceStop(silent) {
   if (!paceState()) return;
   if (!silent && !confirm('¿Terminar el seguimiento de ritmo de esta sesión?')) return;
   paceSave(null); paceOpen = false; paceRender();
 }
-function paceToggle() { paceOpen = !paceOpen; paceRender(); }
+function paceToggle() { const w = document.getElementById('pace-widget'); if (w && w.dataset.justDragged) return; paceOpen = !paceOpen; paceRender(); }
 function paceRest(min) {
   const st = paceState(); if (!st) return;
   st.restEnd = Date.now() + Math.round(min * 60000); st.restBeeped = false; paceSave(st); paceRender();
@@ -4084,6 +4125,12 @@ function paceRender() {
     return;
   }
   const elapsed = (Date.now() - st.start) / 60000;
+  if (paceMini) {
+    const left = st.restEnd ? Math.max(0, Math.round((st.restEnd - Date.now()) / 1000)) : null;
+    if (left === 0 && !st.restBeeped) { st.restBeeped = true; paceSave(st); tmrBeep(880, 180); setTimeout(() => tmrBeep(880, 180), 250); tmrVibrate([200, 100, 200]); }
+    w.innerHTML = `<div onclick="paceToggleMini()" style="background:var(--surface);border:1px solid var(--accent);border-radius:999px;box-shadow:0 6px 24px rgba(0,0,0,.6);padding:8px 14px;font-weight:800;font-size:13px;font-variant-numeric:tabular-nums;cursor:pointer;white-space:nowrap">⏱ ${paceFmt(elapsed)}${left != null ? ` · ${left === 0 ? '¡Dale!' : Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0')}` : ''} <span style="color:var(--text-3);font-weight:600">· tocá para abrir</span></div>`;
+    return;
+  }
   // bloque actual = primero con algún ejercicio incompleto
   let cur = plan.findIndex(b => !b.ids.every(id => isExerciseComplete(id)));
   const allDone = cur === -1; if (allDone) cur = plan.length - 1;
@@ -4107,6 +4154,7 @@ function paceRender() {
       <div style="color:var(--text-3);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${allDone ? 'Tocá para ver el resumen' : `Ahora: ${b.names.join(' + ')} · fin plan ${paceFmt(b.end)}`}</div>
     </div>
     ${restHTML}
+    <button onclick="paceToggleMini()" title="Minimizar" style="background:none;border:1px solid var(--border);border-radius:999px;color:var(--text-2);width:30px;height:30px;font-size:14px;cursor:pointer">–</button>
     <button onclick="paceToggle()" style="background:none;border:1px solid var(--border);border-radius:999px;color:var(--text-2);width:30px;height:30px;font-size:14px;cursor:pointer">${paceOpen ? '▾' : '▴'}</button>
   </div>`;
   let panel = '';
@@ -4123,7 +4171,7 @@ function paceRender() {
       <div style="color:var(--text-3);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">${tplName} · plan ${paceFmt(total)} efectivos (+1' por cambio de máquina incluido)</div>
       ${rows}
       <div style="display:flex;align-items:center;gap:6px;margin-top:9px;flex-wrap:wrap"><span style="color:var(--text-3);font-size:11px">Descanso:</span>${rests.map(m => restBtn(m, String(m).replace('.', ',') + "'")).join('')}</div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px"><span style="color:var(--text-3);font-size:10px">Un ejercicio cuenta como hecho cuando todas sus series tienen reps y RPE.</span><button onclick="paceStop()" style="background:none;border:1px solid var(--border);border-radius:999px;color:var(--text-3);font-size:11px;padding:4px 9px;cursor:pointer">Terminar</button></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px"><span style="color:var(--text-3);font-size:10px">Hecho = todas las series con reps y RPE. <span onclick="paceResetPos()" style="color:var(--accent-2);cursor:pointer">Volver a posición original</span> · arrastrá para mover.</span><button onclick="paceStop()" style="background:none;border:1px solid var(--border);border-radius:999px;color:var(--text-3);font-size:11px;padding:4px 9px;cursor:pointer">Terminar</button></div>
     </div>`;
   }
   w.innerHTML = card(pill + panel);
