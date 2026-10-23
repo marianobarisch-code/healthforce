@@ -481,7 +481,7 @@
   <div class="header"><h1>Ajustes</h1></div>
   <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Conexiones</div>
   <div id="gcal-card"></div>
-  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.10.13</strong></div>
+  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.10.23</strong></div>
 </section>
 
 <nav class="nav" id="bottom-nav">
@@ -720,7 +720,7 @@ const DAY_EXERCISES = {
       why: 'MÚSCULOS: recto abdominal; oblicuos secundarios. POR QUÉ ESTE: el recto abdominal crece con FLEXIÓN CARGADA en rango completo, no con isometrías (planchas = estabilidad, no hipertrofia). Máquina vs crunch en polea: fija la pelvis y guía la curvatura — con tu sacro prefiero flexión torácica controlada; ya la usaste el 28/9 sin reacción. POR QUÉ ÚLTIMO: el core fatigado sostiene peor los compuestos; al cierre no roba nada. PROGRESIÓN: 15 limpias → +1 placa. ALTERNATIVAS: crunch en polea alta de rodillas · elevación de piernas colgado con retroversión.' }
   ],
   empuje: [ // UPPER B — miércoles
-    { id: 'pull-ups', sets: 3, reps: '5-8', rir: 'RIR 2', rest: "3'", aprox: 1, ss_group: null, notes: 'Dorsal · agarre NEUTRO o supino · cuello neutro · la serie termina si la rep se degrada',
+    { id: 'pull-ups', sets: 3, reps: '5-8', rir: 'RIR 2', rest: "3'", aprox: 1, ss_group: null, notes: 'Dorsal · agarre NEUTRO (supino suspendido desde 15/10) · SET escapular antes de cada rep · cuello neutro · la serie termina si la rep se degrada',
       why: 'MÚSCULOS: dorsal ancho; bíceps/braquial, espalda media y posterior secundarios. POR QUÉ ESTE: tu favorito y el mejor dorsal para 1,96 m (palancas largas = rango enorme). Neutro/supino en Fase 1: hombro en posición segura, menos tentación del trapecio/cuello, más braquial (que te falta); el prono ancho vuelve en Etapa 2 con el cuello avalado. POR QUÉ PRIMERO: el más difícil y técnico del día — fresco o no se hace bien. CUES: escápulas abajo antes de tirar, sin kipping, mirada al frente (NO al cielo). PROGRESIÓN: 3×8 limpias → primer lastre 2,5 kg. ALTERNATIVAS: supinas · jalón neutro cerrado si un día no llegás a 5.' },
     { id: 'technogym-row', sets: 3, reps: '10-12', rir: 'RIR 2', rest: "2,5'", aprox: 1, ss_group: null, notes: 'Espalda media · pecho apoyado · pausa 1" atrás, hombros LEJOS de las orejas · 20',
       why: 'MÚSCULOS: espalda media (romboides, trapecio medio) + dorsal; bíceps y posterior secundarios. POR QUÉ ESTE: la tracción horizontal que acompaña a todo empuje horizontal — el contrapeso del ratio empuje/tracción que tu rectificación cervical necesita. PECHO APOYADO = cero sacro y lumbar (vs remo con barra/mancuerna). Technogym (resistencia constante) o tu polea inclinada: elegí la que te deje sentir más los omóplatos. POR QUÉ SEGUNDO: tirón horizontal fresco, antes de que el trapecio compense. Si el cuello se tensa, el peso está alto. ALTERNATIVAS: tu remo inclinado en polea · remo en máquina con agarre neutro · remo en polea baja sentado (última: carga lumbar).' },
@@ -2210,7 +2210,22 @@ function renderStrengthDay(typeId, dateStr) {
   saveDraft(typeId, dateStr, draft);
 
   const content = document.getElementById('day-content');
-  let html = '<button class="add-exercise-btn" onclick="showPickExerciseModal()">+ Agregar ejercicio</button>';
+  let html = '';
+  // Protocolo escapular (desde 17/10, 5º episodio): calor fijo de todo día de tren superior.
+  if (['tiron', 'empuje', 'upper-c'].includes(typeId)) {
+    html += `<details style="background:var(--surface);border:1px solid var(--gold);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px">
+      <summary style="cursor:pointer;font-weight:800;font-size:14px;list-style:none">🛡️ Protocolo escapular · 7' antes de la 1ª serie <span style="color:var(--text-3);font-weight:600;font-size:12px">(tocá)</span></summary>
+      <div style="color:var(--text-2);font-size:13px;line-height:1.55;margin-top:8px">
+        <div>1 · <b>Gato-camello</b> 10 lentos — movilidad dorsal</div>
+        <div>2 · <b>Wall slides</b> 2×8 — subir sin despegar antebrazos de la pared, hombros abajo</div>
+        <div>3 · <b>Scapular push-ups</b> 2×10 — en plancha, solo juntar/separar omóplatos (serrato)</div>
+        <div>4 · <b>Colgarse activo</b> 2×6 — colgar → deprimir y retraer escápulas sin flexionar codos → soltar. <i>El gesto que falló el 15/10, aislado.</i></div>
+        <div>5 · <b>Banda pull-apart</b> 2×15 — livianísimo</div>
+        <div style="margin-top:8px;padding:8px 10px;background:var(--surface-2);border-radius:10px;color:var(--text)"><b>Regla de la rep en toda tracción:</b> colgar → "hombros al bolsillo trasero" → recién ahí tirar. Si la escápula sube antes de tirar, esa rep no cuenta. Dominadas en agarre <b>neutro</b> (o jalón) hasta que el set sea automático.</div>
+      </div>
+    </details>`;
+  }
+  html += '<button class="add-exercise-btn" onclick="showPickExerciseModal()">+ Agregar ejercicio</button>';
   html += '<div class="exercise-list">';
 
   draft.exercise_order.forEach((exId, idx) => {
@@ -3985,7 +4000,7 @@ suggestNextSession = function (exId, repsRange, dateStr) {
 // Hasta que loguees la primera sesión de un ejercicio DESPUÉS del inicio de la fase, la sugerencia
 // usa estas cargas (si no, te sugeriría tus pesos viejos: inclinado 32, jalón 80...).
 const FASE1 = {
-  start: '2026-10-05', weeks: 4,
+  start: '2026-10-26', weeks: 4, // reinicio tras episodio del 15/10 (regla de descenso)
   loads: { 'incline-db': 24, 'lat-pulldown': 57.5, 'lateral-raise-cable': 5, 'pec-deck': 15, 'overhead-ext-rope': 15, 'ab-crunch-machine': '',
     'pull-ups': '', 'technogym-row': 20, 'user-remo-incl-polea-1788781429587': 20, 'dips-chest': '', 'rear-delt-fly': '', 'cable-fly-low-high': 5, 'incline-db-curl': 8,
     'bulgarian-split': 10, 'atg-split-squat': 8, 'rdl': 12, 'hip-thrust': 70, 'leg-press': '', 'leg-curl': '', 'copenhagen-plank': 25, 'user-m-quina-adductor-1786553665627': 15, 'calf-raise': '', 'hyperextension': 50,
