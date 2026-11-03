@@ -481,7 +481,7 @@
   <div class="header"><h1>Ajustes</h1></div>
   <div style="color:var(--text-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Conexiones</div>
   <div id="gcal-card"></div>
-  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.11.03</strong></div>
+  <div style="color:var(--text-3);font-size:12px;text-align:center;margin-top:28px">Healthforce · versión <strong style="color:var(--accent)">2026.11.03b</strong></div>
 </section>
 
 <nav class="nav" id="bottom-nav">
@@ -911,7 +911,15 @@ function getAllExercises() {
 function findExercise(id) { return getAllExercises().find(e => e.id === id); }
 // Excepciones de UN día puntual (clave 'YYYY-MM-DD|typeId'). Expiran solas: pasada la fecha, el día vuelve al plan normal.
 const DAY_EXCEPTIONS = {
-  // (vacío) — ejemplo: '2026-09-09|piernas': [ {...prescripciones...} ]
+  // 4/11: Upper A de REENTRADA tras 3 semanas sin gym (solo este día; después vuelve la rutina normal)
+  '2026-11-04|tiron': [
+    { id: 'incline-db', sets: 3, reps: '8-10', rir: 'RIR 3-4', rest: "3'", aprox: 2, ss_group: null, notes: 'REENTRADA · 24/mano (no 28): 3 semanas sin presses · bajada 3", pausa abajo', why: 'Día de reentrada: el objetivo es volver a mandar la señal sin pagar peaje. Mismos ejercicios de Upper A al ~85% de las cargas de Fase 1, RIR 3-4. Antes de la primera serie: el Protocolo escapular de 7 minutos (card amarilla), obligatorio hoy — primera tracción desde el episodio del 15/10.' },
+    { id: 'lat-pulldown', sets: 3, reps: '8-10', rir: 'RIR 3', rest: "2,5'", aprox: 1, ss_group: null, notes: 'REENTRADA · 50-55 · "hombros al bolsillo trasero" ANTES de cada rep · si la escápula sube antes de tirar, la rep no cuenta', why: 'Regla de la rep en toda tracción: colgar → deprimir y retraer escápulas → recién ahí tirar. Prono medio, torso 10-15° atrás, pausa 1" en el pecho alto. Si hay cualquier aviso en cuello/escápula: se termina el ejercicio, no el día.' },
+    { id: 'lateral-raise-cable', sets: 2, reps: '12-15 por lado', rir: 'RIR 2', rest: "1,5'", aprox: 0, ss_group: null, notes: 'REENTRADA · el mínimo del stack · el hombro viene del pádel de ayer: livianísimo o se saltea', why: 'Cable por detrás del cuerpo, hombro abajo todo el recorrido, subir "lejos" no "alto". Hoy es solo para reencontrar el gesto.' },
+    { id: 'pec-deck', sets: 2, reps: '12', rir: 'RIR 3', rest: "1,5' entre rondas", aprox: 0, ss_group: 1, notes: 'SS1 · 12,5 · abrir 2" hasta el estiramiento, pausa 1"', why: 'Superserie con el overhead (no compiten). Estiramiento controlado, nada de golpear las manijas.' },
+    { id: 'overhead-ext-rope', sets: 2, reps: '12', rir: 'RIR 3', rest: "1,5' entre rondas", aprox: 0, ss_group: 1, notes: 'SS1 · 10-12 · de espaldas a la polea, cabeza neutra', why: 'Cabeza larga del tríceps en estiramiento. Codos cerrados apuntando adelante, tronco quieto.' },
+    { id: 'ab-crunch-machine', sets: 2, reps: '12-15', rir: 'RIR 2', rest: "1'", aprox: 0, ss_group: null, notes: 'Cierre · 20-25 · exhalar al cerrar, pausa 1"', why: 'Flexión cargada del recto abdominal, pelvis fija en la máquina. Cierre del día antes de la movilidad final.' }
+  ]
 };
 function dayPrescription(typeId, ds) { return DAY_EXCEPTIONS[ds + '|' + typeId] || DAY_EXERCISES[typeId] || []; }
 function getExerciseMeta(typeId, exId) {
